@@ -8,7 +8,7 @@ import {
   Switch,
   ActivityIndicator,
 } from 'react-native'
-import MapView, { Marker, Callout } from '../components/MapViewWrapper'
+import MapView, { styleURL, Camera, Marker, UserLocation } from '../components/MapViewWrapper'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useLocation } from '../hooks/useLocation'
@@ -32,6 +32,7 @@ export default function HomeScreen() {
       ),
     })
   }, [navigation])
+
   const [carritos, setCarritos] = useState<CarritoConDistancia[]>([])
   const [loading, setLoading] = useState(true)
   const [soloAbiertos, setSoloAbiertos] = useState(false)
@@ -47,7 +48,7 @@ export default function HomeScreen() {
       )
       setCarritos(data)
     } catch {
-      // Silently fail — users will see empty state
+      // Silently fail
     }
     setLoading(false)
   }, [location])
@@ -73,43 +74,39 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        initialRegion={
-          location
-            ? {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }
-            : undefined
-        }
-        showsUserLocation
-        showsMyLocationButton
+        styleURL={styleURL}
+        logoEnabled={false}
+        attributionEnabled={false}
       >
+        <Camera
+          defaultSettings={{
+            centerCoordinate: location
+              ? [location.longitude, location.latitude]
+              : [-58.3816, -34.6037],
+            zoomLevel: 14,
+          }}
+        />
+        <UserLocation renderMode="native" />
         {carritos.map((c) =>
           c.latitud != null && c.longitud != null ? (
             <Marker
               key={c.id}
-              coordinate={{
-                latitude: c.latitud,
-                longitude: c.longitud,
-              }}
-              pinColor={c.estado_abierto ? '#4CAF50' : '#757575'}
+              id={c.id}
+              lngLat={[c.longitud, c.latitud]}
+              onPress={() =>
+                navigation.navigate('Menu', { carritoId: c.id, nombre: c.nombre })
+              }
             >
-              <Callout
-                onPress={() =>
-                  navigation.navigate('Menu', { carritoId: c.id, nombre: c.nombre })
-                }
-              >
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle}>{c.nombre}</Text>
-                  <Text style={styles.calloutDist}>
-                    {c.distancia_km.toFixed(1)} km
-                    {c.estado_abierto ? ' • Abierto' : ' • Cerrado'}
-                  </Text>
-                  <Text style={styles.calloutTap}>Tocá para ver menú</Text>
+              <View style={styles.markerContainer}>
+                <View
+                  style={[
+                    styles.marker,
+                    c.estado_abierto ? styles.markerOpen : styles.markerClosed,
+                  ]}
+                >
+                  <Text style={styles.markerText}>🍔</Text>
                 </View>
-              </Callout>
+              </View>
             </Marker>
           ) : null,
         )}
@@ -184,12 +181,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   loadingText: { marginTop: 12, color: '#666', fontSize: 14 },
   filterBar: {
     position: 'absolute',
@@ -224,12 +216,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
   },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 8,
-  },
+  sheetTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginBottom: 8 },
   carritoItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -240,22 +227,25 @@ const styles = StyleSheet.create({
   },
   carritoNombre: { fontSize: 15, fontWeight: '600', color: '#333' },
   carritoDist: { fontSize: 12, color: '#888', marginTop: 2 },
-  statusBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
+  statusBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   statusOpen: { backgroundColor: '#E8F5E9' },
   statusClosed: { backgroundColor: '#F5F5F5' },
   statusText: { fontSize: 12, fontWeight: '600', color: '#333' },
-  emptyText: {
-    textAlign: 'center',
-    color: '#999',
-    marginTop: 20,
-    fontSize: 14,
+  emptyText: { textAlign: 'center', color: '#999', marginTop: 20, fontSize: 14 },
+  markerContainer: { alignItems: 'center' },
+  marker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  callout: { minWidth: 140, padding: 4 },
-  calloutTitle: { fontWeight: '700', fontSize: 14, color: '#333' },
-  calloutDist: { fontSize: 12, color: '#666', marginTop: 2 },
-  calloutTap: { fontSize: 11, color: '#D32F2F', marginTop: 4 },
+  markerOpen: { backgroundColor: '#4CAF50' },
+  markerClosed: { backgroundColor: '#757575' },
+  markerText: { fontSize: 16 },
 })

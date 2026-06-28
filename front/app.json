@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BurguerMap",
-    "slug": "burguermap",
+    "name": "Carritos Al Toque",
+    "slug": "carritos-al-toque",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,10 +9,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para encontrar carritos de hamburguesas cercanos.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Necesitamos tu ubicación para encontrar carritos de hamburguesas cercanos."
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para encontrar carritos cercanos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Necesitamos tu ubicación para encontrar carritos cercanos."
       },
-      "bundleIdentifier": "com.anonymous.burguermap"
+      "bundleIdentifier": "com.carritos.altoque"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +28,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.anonymous.burguermap"
+      "package": "com.carritos.altoque"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,10 +37,11 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Necesitamos tu ubicación para encontrar carritos de hamburguesas cercanos.",
-          "locationWhenInUsePermission": "Necesitamos tu ubicación para encontrar carritos de hamburguesas cercanos."
+          "locationAlwaysAndWhenInUsePermission": "Necesitamos tu ubicación para encontrar carritos cercanos.",
+          "locationWhenInUsePermission": "Necesitamos tu ubicación para encontrar carritos cercanos."
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ]
   }
 }
