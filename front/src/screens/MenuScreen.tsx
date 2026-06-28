@@ -24,6 +24,8 @@ export default function MenuScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
+  const [latitud, setLatitud] = useState<number | null>(null)
+  const [longitud, setLongitud] = useState<number | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -77,10 +79,22 @@ export default function MenuScreen() {
   const fetchCarritoInfo = async () => {
     const { data } = await supabase
       .from('carritos')
-      .select('whatsapp')
+      .select('whatsapp, latitud, longitud')
       .eq('id', carritoId)
       .single()
-    if (data?.whatsapp) setWhatsapp(data.whatsapp)
+    if (data) {
+      if (data.whatsapp) setWhatsapp(data.whatsapp)
+      if (data.latitud != null) setLatitud(data.latitud)
+      if (data.longitud != null) setLongitud(data.longitud)
+    }
+  }
+
+  const handleOpenMaps = () => {
+    if (latitud == null || longitud == null) return
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}`
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Error', 'No se pudo abrir la navegación en Google Maps'),
+    )
   }
 
   useEffect(() => {
@@ -101,7 +115,20 @@ export default function MenuScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>{nombre}</Text>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>{nombre}</Text>
+        </View>
+        {latitud != null && longitud != null && (
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={handleOpenMaps}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.mapButtonText}>🗺️ Cómo llegar</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <FlatList
         data={menus}
@@ -178,14 +205,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
   },
-  header: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#D32F2F',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+  },
+  mapButton: {
+    backgroundColor: '#1976D2',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  mapButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   list: { padding: 16 },
   menuItem: {
