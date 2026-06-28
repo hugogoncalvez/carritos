@@ -74,17 +74,16 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        styleURL={styleURL}
-        logoEnabled={false}
-        attributionEnabled={false}
+        mapStyle={styleURL}
       >
         <Camera
-          defaultSettings={{
-            centerCoordinate: location
+          initialViewState={{
+            center: location
               ? [location.longitude, location.latitude]
               : [-58.3816, -34.6037],
-            zoomLevel: 14,
+            zoom: 14,
           }}
+          trackUserLocation="default"
         />
         <UserLocation renderMode="native" />
         {carritos.map((c) =>
@@ -171,7 +170,7 @@ export default function HomeScreen() {
                 No hay carritos cerca en este momento
               </Text>
             }
-          />
+        />
         )}
       </View>
     </View>
