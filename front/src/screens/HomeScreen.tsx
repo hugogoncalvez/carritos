@@ -8,7 +8,7 @@ import {
   Switch,
   ActivityIndicator,
 } from 'react-native'
-import MapView, { styleURL, Camera, Marker, UserLocation } from '../components/MapViewWrapper'
+import MapView, { styleURL, Camera, Marker } from '../components/MapViewWrapper'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useLocation } from '../hooks/useLocation'
@@ -36,6 +36,7 @@ export default function HomeScreen() {
   const [carritos, setCarritos] = useState<CarritoConDistancia[]>([])
   const [loading, setLoading] = useState(true)
   const [soloAbiertos, setSoloAbiertos] = useState(false)
+  const [currentZoom, setCurrentZoom] = useState(14)
 
   const cargarCarritos = useCallback(async () => {
     if (!location) return
@@ -75,6 +76,9 @@ export default function HomeScreen() {
       <MapView
         style={styles.map}
         mapStyle={styleURL}
+        onRegionDidChange={(e: any) => {
+          setCurrentZoom(e.nativeEvent.zoom)
+        }}
       >
         <Camera
           initialViewState={{
@@ -85,7 +89,18 @@ export default function HomeScreen() {
           }}
           trackUserLocation="default"
         />
-        <UserLocation renderMode="native" />
+        {location && (
+          <Marker
+            id="user-location"
+            lngLat={[location.longitude, location.latitude]}
+          >
+            <View style={styles.userMarkerContainer}>
+              <View style={styles.userMarker}>
+                <Text style={styles.userMarkerText}>🧍</Text>
+              </View>
+            </View>
+          </Marker>
+        )}
         {carritos.map((c) =>
           c.latitud != null && c.longitud != null ? (
             <Marker
@@ -105,6 +120,13 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.markerText}>🍔</Text>
                 </View>
+                {currentZoom >= 15 && (
+                  <View style={styles.markerLabelContainer}>
+                    <Text style={styles.markerLabelText} numberOfLines={1}>
+                      {c.nombre}
+                    </Text>
+                  </View>
+                )}
               </View>
             </Marker>
           ) : null,
@@ -247,4 +269,48 @@ const styles = StyleSheet.create({
   markerOpen: { backgroundColor: '#4CAF50' },
   markerClosed: { backgroundColor: '#757575' },
   markerText: { fontSize: 16 },
+  userMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  userMarkerText: {
+    fontSize: 16,
+  },
+  markerLabelContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    maxWidth: 100,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  markerLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+  },
 })
