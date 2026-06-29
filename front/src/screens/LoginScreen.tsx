@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   View,
   Text,
@@ -10,27 +10,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuth } from '../context/AuthContext'
-import type { RootStackParamList } from '../types'
 import { T } from '../theme'
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>
-
 export default function LoginScreen() {
-  const navigation = useNavigation<Nav>()
-  const { signIn, signUp, user } = useAuth()
+  const { signIn, signUp } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
-
-  useEffect(() => {
-    if (user) {
-      navigation.replace('Admin')
-    }
-  }, [user, navigation])
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {

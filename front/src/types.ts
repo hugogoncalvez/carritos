@@ -25,9 +25,15 @@ export type Menu = {
 
 export type CarritoConDistancia = Carrito & { distancia_km: number }
 
+export type TabParamList = {
+  Explorar: undefined
+  Favoritos: undefined
+  Pedidos: undefined
+  Perfil: undefined
+}
+
 export type RootStackParamList = {
-  Home: undefined
+  MainTabs: undefined
+  // Menu es la única pantalla que sale del contexto de tabs (vista de detalle)
   Menu: { carritoId: string; nombre: string }
-  Login: undefined
-  Admin: undefined
 }
