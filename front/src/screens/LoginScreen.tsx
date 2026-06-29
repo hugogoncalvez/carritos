@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../types'
+import { T } from '../theme'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
@@ -57,49 +58,57 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.title}>Carritos Al Toque</Text>
-      <Text style={styles.subtitle}>Acceso de dueños</Text>
+      {/* Branding */}
+      <View style={styles.brandingBlock}>
+        <Text style={styles.emoji}>🛒</Text>
+        <Text style={styles.title}>Carritos Al Toque</Text>
+        <Text style={styles.subtitle}>Panel de dueños</Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Correo electrónico"
-        placeholderTextColor="#999"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
+      {/* Form */}
+      <View style={styles.formBlock}>
+        <TextInput
+          style={styles.input}
+          placeholder="Correo electrónico"
+          placeholderTextColor={T.colors.onSurfaceVariant + '80'}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        placeholderTextColor="#999"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Contraseña"
+          placeholderTextColor={T.colors.onSurfaceVariant + '80'}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>
-            {isSignUp ? 'Registrarse' : 'Entrar'}
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleSubmit}
+          disabled={loading}
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator color={T.colors.onPrimaryContainer} />
+          ) : (
+            <Text style={styles.buttonText}>
+              {isSignUp ? 'Registrarse' : 'Entrar'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} activeOpacity={0.7}>
+          <Text style={styles.switchText}>
+            {isSignUp
+              ? '¿Ya tenés cuenta? Iniciá sesión'
+              : '¿No tenés cuenta? Registrate'}
           </Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-        <Text style={styles.switchText}>
-          {isSignUp
-            ? '¿Ya tenés cuenta? Iniciá sesión'
-            : '¿No tenés cuenta? Registrate'}
-        </Text>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   )
 }
@@ -108,46 +117,63 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    paddingHorizontal: T.spacing.marginMain,
+    backgroundColor: T.colors.background,
+  },
+  brandingBlock: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  emoji: {
+    fontSize: 52,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    ...T.font.headlineLg,
+    color: T.colors.primary,
     textAlign: 'center',
-    color: '#D32F2F',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    ...T.font.bodyMd,
+    color: T.colors.onSurfaceVariant,
     textAlign: 'center',
-    color: '#666',
-    marginBottom: 32,
+  },
+  formBlock: {
+    backgroundColor: T.colors.surfaceContainerLowest,
+    borderRadius: T.radius.lg,
+    padding: T.spacing.insetCard,
+    ...T.shadow.card,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 16,
-    marginBottom: 16,
-    color: '#333',
+    borderColor: T.colors.outlineVariant,
+    borderRadius: T.radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    fontFamily: T.font.bodyMd.fontFamily,
+    color: T.colors.onSurface,
+    backgroundColor: T.colors.surface,
+    marginBottom: 12,
   },
   button: {
-    backgroundColor: '#D32F2F',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: T.colors.primaryContainer,
+    borderRadius: T.radius.lg,
+    height: 52,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
     marginBottom: 16,
+    ...T.shadow.card,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...T.font.headlineSm,
+    color: T.colors.onPrimaryContainer,
   },
   switchText: {
+    ...T.font.bodyMd,
     textAlign: 'center',
-    color: '#D32F2F',
-    fontSize: 14,
+    color: T.colors.primary,
   },
 })
