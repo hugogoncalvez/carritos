@@ -10,15 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useAuth } from '../context/AuthContext'
 import { T } from '../theme'
 
 export default function LoginScreen() {
-  const { signIn, signUp } = useAuth()
+  const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [isSignUp, setIsSignUp] = useState(false)
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -26,17 +27,9 @@ export default function LoginScreen() {
       return
     }
     setLoading(true)
-    const error = isSignUp
-      ? await signUp(email.trim(), password)
-      : await signIn(email.trim(), password)
-
+    const error = await signIn(email.trim(), password)
     if (error) {
       Alert.alert('Error', error)
-    } else if (isSignUp) {
-      Alert.alert(
-        'Registro exitoso',
-        'Revisa tu correo para confirmar la cuenta.',
-      )
     }
     setLoading(false)
   }
@@ -46,14 +39,12 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Branding */}
       <View style={styles.brandingBlock}>
         <Text style={styles.emoji}>🛒</Text>
         <Text style={styles.title}>Carritos Al Toque</Text>
         <Text style={styles.subtitle}>Panel de dueños</Text>
       </View>
 
-      {/* Form */}
       <View style={styles.formBlock}>
         <TextInput
           style={styles.input}
@@ -65,14 +56,27 @@ export default function LoginScreen() {
           onChangeText={setEmail}
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          placeholderTextColor={T.colors.onSurfaceVariant + '80'}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Contraseña"
+            placeholderTextColor={T.colors.onSurfaceVariant + '80'}
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeBtn}
+            onPress={() => setShowPassword(!showPassword)}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name={showPassword ? 'visibility-off' : 'visibility'}
+              size={22}
+              color={T.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={styles.button}
@@ -83,19 +87,13 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color={T.colors.onPrimaryContainer} />
           ) : (
-            <Text style={styles.buttonText}>
-              {isSignUp ? 'Registrarse' : 'Entrar'}
-            </Text>
+            <Text style={styles.buttonText}>Entrar</Text>
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} activeOpacity={0.7}>
-          <Text style={styles.switchText}>
-            {isSignUp
-              ? '¿Ya tenés cuenta? Iniciá sesión'
-              : '¿No tenés cuenta? Registrate'}
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.disclaimer}>
+          ¿Querés sumar tu carrito? Contactanos para asociarte.
+        </Text>
       </View>
     </KeyboardAvoidingView>
   )
@@ -145,6 +143,30 @@ const styles = StyleSheet.create({
     backgroundColor: T.colors.surface,
     marginBottom: 12,
   },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: T.colors.outlineVariant,
+    borderRadius: T.radius.md,
+    backgroundColor: T.colors.surface,
+    marginBottom: 12,
+    height: 48,
+  },
+  passwordInput: {
+    flex: 1,
+    height: 48,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontFamily: T.font.bodyMd.fontFamily,
+    color: T.colors.onSurface,
+  },
+  eyeBtn: {
+    width: 44,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   button: {
     backgroundColor: T.colors.primaryContainer,
     borderRadius: T.radius.lg,
@@ -159,9 +181,9 @@ const styles = StyleSheet.create({
     ...T.font.headlineSm,
     color: T.colors.onPrimaryContainer,
   },
-  switchText: {
+  disclaimer: {
     ...T.font.bodyMd,
     textAlign: 'center',
-    color: T.colors.primary,
+    color: T.colors.onSurfaceVariant,
   },
 })

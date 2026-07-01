@@ -7,21 +7,24 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Linking,
   Image,
+  Linking,
 } from 'react-native'
-import { useRoute } from '@react-navigation/native'
+import { useRoute, useNavigation } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
 import { supabase, fetchMenus } from '../supabaseClient'
 import type { Menu, RootStackParamList } from '../types'
+import { useCart } from '../context/CartContext'
+import { T } from '../theme'
 
 type MenuRoute = RouteProp<RootStackParamList, 'Menu'>
 
 export default function MenuScreen() {
   const route = useRoute<MenuRoute>()
-  const { carritoId, nombre } = route.params
+  const navigation = useNavigation()
+  const { carritoId, nombre, imagen_url: carritoImagen, icono: carritoIcono } = route.params
   const [menus, setMenus] = useState<Menu[]>([])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const { addItem, items } = useCart()
   const [loading, setLoading] = useState(true)
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
   const [latitud, setLatitud] = useState<number | null>(null)
@@ -39,42 +42,21 @@ export default function MenuScreen() {
     })()
   }, [carritoId])
 
-  const toggleItem = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
+  const handleAddToCart = (menu: Menu) => {
+    addItem({
+      menuId: menu.id,
+      carritoId,
+      vendorName: nombre,
+      vendorWhatsapp: whatsapp,
+      nombre: menu.nombre_producto,
+      precio: menu.precio,
     })
   }
 
-  const pedidoText = () => {
-    const items = menus.filter((m) => selected.has(m.id))
-    if (items.length === 0) return ''
-    const lines = items.map(
-      (m) => `• ${m.nombre_producto} — $${m.precio.toFixed(2)}`,
-    )
-    return `¡Hola! Quiero pedir:\n${lines.join('\n')}`
-  }
-
-  const handleWhatsApp = () => {
-    if (!whatsapp) {
-      Alert.alert('Sin contacto', 'Este carrito no tiene WhatsApp configurado.')
-      return
-    }
-
-    const text = pedidoText()
-    if (!text) {
-      Alert.alert('Seleccioná productos', 'Elegí al menos un producto.')
-      return
-    }
-
-    const numero = whatsapp.replace(/[^0-9]/g, '')
-    const url = `https://wa.me/${numero}?text=${encodeURIComponent(text)}`
-    Linking.openURL(url).catch(() =>
-      Alert.alert('Error', 'No se pudo abrir WhatsApp'),
-    )
-  }
+  const cartCount = items.filter((i) => i.carritoId === carritoId).length
+  const cartTotal = items
+    .filter((i) => i.carritoId === carritoId)
+    .reduce((sum, i) => sum + i.precio * i.cantidad, 0)
 
   const fetchCarritoInfo = async () => {
     const { data } = await supabase
@@ -104,70 +86,110 @@ export default function MenuScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#D32F2F" />
+        <ActivityIndicator size="large" color={T.colors.primary} />
       </View>
     )
   }
 
-  const total = menus
-    .filter((m) => selected.has(m.id))
-    .reduce((sum, m) => sum + m.precio, 0)
-
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>{nombre}</Text>
-        </View>
-        {latitud != null && longitud != null && (
-          <TouchableOpacity
-            style={styles.mapButton}
-            onPress={handleOpenMaps}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.mapButtonText}>🗺️ Cómo llegar</Text>
-          </TouchableOpacity>
-        )}
+      {/* FLOATING HEADER */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.topBarBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.topBarBtnIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle} numberOfLines={1}>{nombre}</Text>
+        <TouchableOpacity style={styles.topBarBtn}>
+          <Text style={styles.topBarBtnIcon}>🔍</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
         data={menus}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <>
+            {/* HERO CARD */}
+            <View style={styles.heroCard}>
+              <View style={styles.heroImageContainer}>
+                {carritoImagen ? (
+                  <Image source={{ uri: carritoImagen }} style={styles.heroImage} />
+                ) : (
+                  <View style={styles.heroImagePlaceholder}>
+                    <Text style={styles.heroPlaceholderIcon}>{carritoIcono || '🍔'}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.heroInfo}>
+                <Text style={styles.heroTitle}>{nombre}</Text>
+                {latitud != null && longitud != null && (
+                  <TouchableOpacity
+                    style={styles.locationRow}
+                    onPress={handleOpenMaps}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.locationIcon}>📍</Text>
+                    <Text style={styles.locationText}>Cómo llegar</Text>
+                  </TouchableOpacity>
+                )}
+                <View style={styles.heroTags}>
+                  <View style={styles.heroTagOpen}>
+                    <View style={styles.heroTagDot} />
+                    <Text style={styles.heroTagOpenText}>Abierto</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* SECTION TITLE */}
+            <Text style={styles.sectionTitle}>Menú Principal</Text>
+          </>
+        }
         renderItem={({ item }) => {
-          const isSelected = selected.has(item.id)
+          const cartItem = items.find(
+            (i) => i.menuId === item.id && i.carritoId === carritoId,
+          )
+          const cantidad = cartItem?.cantidad ?? 0
           return (
             <TouchableOpacity
-              style={[styles.menuItem, isSelected && styles.menuItemSelected]}
-              onPress={() => toggleItem(item.id)}
+              style={[styles.productCard, cantidad > 0 && styles.productCardSelected]}
+              onPress={() => handleAddToCart(item)}
               activeOpacity={0.7}
             >
-              {item.imagen_url ? (
-                <Image
-                  source={{ uri: item.imagen_url }}
-                  style={styles.itemImage}
-                />
-              ) : null}
-
-              <View style={styles.menuContent}>
-                <View style={styles.menuInfo}>
-                  <Text style={styles.menuNombre}>{item.nombre_producto}</Text>
-                  {item.descripcion ? (
-                    <Text style={styles.menuDesc}>{item.descripcion}</Text>
-                  ) : null}
-                </View>
-                <Text style={styles.menuPrecio}>
-                  ${item.precio.toFixed(2)}
-                </Text>
+              <View style={styles.productInfo}>
+                <Text style={styles.productName}>{item.nombre_producto}</Text>
+                {item.descripcion ? (
+                  <Text style={styles.productDesc} numberOfLines={2}>
+                    {item.descripcion}
+                  </Text>
+                ) : null}
               </View>
-
-              <View
-                style={[
-                  styles.checkbox,
-                  isSelected && styles.checkboxSelected,
-                ]}
-              >
-                {isSelected ? <Text style={styles.checkMark}>✓</Text> : null}
+              <View style={styles.productRight}>
+                {item.imagen_url ? (
+                  <Image
+                    source={{ uri: item.imagen_url }}
+                    style={styles.productImage}
+                  />
+                ) : (
+                  <View style={styles.productImagePlaceholder}>
+                    <Text style={styles.productPlaceholderText}>📷</Text>
+                  </View>
+                )}
+                <View style={styles.priceTag}>
+                  {cantidad > 0 ? (
+                    <Text style={styles.priceText}>
+                      {cantidad}x ${(item.precio * cantidad).toFixed(2)}
+                    </Text>
+                  ) : (
+                    <Text style={styles.priceText}>
+                      ${item.precio.toFixed(2)}
+                    </Text>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
           )
@@ -179,17 +201,22 @@ export default function MenuScreen() {
         }
       />
 
-      {selected.size > 0 && (
+      {/* CART FAB */}
+      {cartCount > 0 && (
         <View style={styles.footer}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total seleccionado:</Text>
-            <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+          <View style={styles.totalBar}>
+            <Text style={styles.totalLabel}>
+              {cartCount} {cartCount === 1 ? 'producto' : 'productos'} en tu pedido
+            </Text>
+            <Text style={styles.totalValue}>${cartTotal.toFixed(2)}</Text>
           </View>
           <TouchableOpacity
-            style={styles.whatsappButton}
-            onPress={handleWhatsApp}
+            style={styles.whatsappBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
           >
-            <Text style={styles.whatsappText}>Pedir por WhatsApp</Text>
+            <Text style={styles.whatsappBtnIcon}>🛒</Text>
+            <Text style={styles.whatsappBtnText}>Ir a mi pedido</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -198,116 +225,233 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: T.colors.background },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: T.colors.background,
   },
-  headerRow: {
+
+  /* Top Bar */
+  topBar: {
+    position: 'absolute',
+    top: 56,
+    left: T.spacing.marginMain,
+    right: T.spacing.marginMain,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    backgroundColor: T.colors.surfaceContainerLowest + 'E6',
+    borderRadius: T.radius.full,
+    paddingHorizontal: 4,
+    height: 48,
+    zIndex: 50,
+    ...T.shadow.card,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#D32F2F',
-  },
-  mapButton: {
-    backgroundColor: '#1976D2',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-  },
-  mapButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  list: { padding: 16 },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 8,
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  menuItemSelected: {
-    borderColor: '#D32F2F',
-    backgroundColor: '#FFF5F5',
-  },
-  itemImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  menuContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuInfo: { flex: 1 },
-  menuNombre: { fontSize: 15, fontWeight: '600', color: '#333' },
-  menuDesc: { fontSize: 12, color: '#888', marginTop: 2 },
-  menuPrecio: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#D32F2F',
-    marginRight: 10,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#ccc',
+  topBarBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxSelected: {
-    backgroundColor: '#D32F2F',
-    borderColor: '#D32F2F',
+  topBarBtnIcon: { fontSize: 20, color: T.colors.onSurfaceVariant },
+  topBarTitle: {
+    ...T.font.headlineSm,
+    color: T.colors.primary,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 4,
   },
-  checkMark: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  empty: { textAlign: 'center', color: '#999', marginTop: 40, fontSize: 14 },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    backgroundColor: '#fff',
+
+  list: {
+    paddingTop: 120,
+    paddingHorizontal: T.spacing.marginMain,
+    paddingBottom: 140,
   },
-  totalRow: {
+
+  /* Hero Card */
+  heroCard: {
+    backgroundColor: T.colors.surfaceContainerLowest,
+    borderRadius: T.radius.lg,
+    overflow: 'hidden',
+    marginBottom: T.spacing.stackLg,
+    ...T.shadow.card,
+  },
+  heroImageContainer: {
+    width: '100%',
+    height: 180,
+    backgroundColor: T.colors.surfaceContainerHigh,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: T.colors.surfaceContainerHigh,
+  },
+  heroPlaceholderIcon: { fontSize: 48 },
+  heroInfo: {
+    padding: T.spacing.insetCard,
+  },
+  heroTitle: {
+    ...T.font.headlineLg,
+    color: T.colors.onSurface,
+    marginBottom: T.spacing.stackSm,
+  },
+  locationRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: T.spacing.stackMd,
   },
-  totalLabel: { fontSize: 15, color: '#666' },
-  totalValue: { fontSize: 18, fontWeight: 'bold', color: '#D32F2F' },
-  whatsappButton: {
-    backgroundColor: '#25D366',
-    borderRadius: 12,
-    paddingVertical: 16,
+  locationIcon: { fontSize: 16 },
+  locationText: {
+    ...T.font.bodyMd,
+    color: T.colors.onSurfaceVariant,
+  },
+  heroTags: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  heroTagOpen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: T.colors.tertiary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: T.radius.full,
+  },
+  heroTagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: T.colors.onTertiary,
+  },
+  heroTagOpenText: {
+    ...T.font.labelSm,
+    color: T.colors.onTertiary,
+    fontWeight: '600',
+  },
+
+  /* Section */
+  sectionTitle: {
+    ...T.font.headlineSm,
+    color: T.colors.onSurface,
+    marginBottom: T.spacing.gutter,
+  },
+
+  /* Product Card */
+  productCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: T.colors.surfaceContainerLowest,
+    borderRadius: T.radius.lg,
+    padding: T.spacing.insetCard,
+    marginBottom: T.spacing.gutter,
+    gap: 12,
+    ...T.shadow.card,
+  },
+  productCardSelected: {
+    borderWidth: 2,
+    borderColor: T.colors.primaryContainer,
+    backgroundColor: T.colors.surface,
+  },
+  productInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  productName: {
+    ...T.font.headlineSm,
+    color: T.colors.onSurface,
+    fontWeight: '700',
+  },
+  productDesc: {
+    ...T.font.bodyMd,
+    color: T.colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  productRight: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  productImage: {
+    width: 56,
+    height: 56,
+    borderRadius: T.radius.md,
+  },
+  productImagePlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: T.radius.md,
+    backgroundColor: T.colors.surfaceContainerHigh,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  whatsappText: {
-    color: '#fff',
-    fontSize: 18,
+  productPlaceholderText: { fontSize: 20 },
+  priceTag: {
+    backgroundColor: T.colors.primaryContainer,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: T.radius.full,
+  },
+  priceText: {
+    ...T.font.labelMd,
+    color: T.colors.onPrimaryContainer,
     fontWeight: '700',
+  },
+
+  empty: {
+    textAlign: 'center',
+    color: T.colors.onSurfaceVariant,
+    marginTop: 40,
+    ...T.font.bodyMd,
+  },
+
+  /* Footer / WhatsApp */
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: T.colors.surface,
+    paddingHorizontal: T.spacing.marginMain,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  totalBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  totalLabel: {
+    ...T.font.bodyLg,
+    color: T.colors.onSurfaceVariant,
+  },
+  totalValue: {
+    ...T.font.headlineMd,
+    color: T.colors.onSurface,
+  },
+  whatsappBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#25D366',
+    borderRadius: T.radius.lg,
+    height: 52,
+    ...T.shadow.card,
+  },
+  whatsappBtnIcon: { fontSize: 20 },
+  whatsappBtnText: {
+    ...T.font.headlineSm,
+    color: '#FFFFFF',
   },
 })

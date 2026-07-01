@@ -41,7 +41,8 @@
           "locationWhenInUsePermission": "Necesitamos tu ubicación para encontrar carritos cercanos."
         }
       ],
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "expo-font"
     ]
   }
 }

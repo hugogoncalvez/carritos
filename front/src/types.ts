@@ -8,6 +8,7 @@ export type Carrito = {
   longitud: number | null
   estado_abierto: boolean
   imagen_url: string | null
+  icono: string | null
   created_at: string
   updated_at: string
 }
@@ -25,15 +26,37 @@ export type Menu = {
 
 export type CarritoConDistancia = Carrito & { distancia_km: number }
 
-export type TabParamList = {
+export type CartItem = {
+  id: string
+  menuId: string
+  carritoId: string
+  vendorName: string
+  vendorWhatsapp: string | null
+  nombre: string
+  precio: number
+  cantidad: number
+}
+
+export type CartGroup = {
+  carritoId: string
+  vendorName: string
+  vendorWhatsapp: string | null
+  items: CartItem[]
+  subtotal: number
+}
+
+export type ClientTabParamList = {
   Explorar: undefined
-  Favoritos: undefined
   Pedidos: undefined
-  Perfil: undefined
+}
+
+export type AdminTabParamList = {
+  AdminHome: undefined
 }
 
 export type RootStackParamList = {
-  MainTabs: undefined
-  // Menu es la única pantalla que sale del contexto de tabs (vista de detalle)
-  Menu: { carritoId: string; nombre: string }
+  ClientTabs: undefined
+  AdminTabs: undefined
+  Menu: { carritoId: string; nombre: string; imagen_url?: string | null; icono?: string | null }
+  Login: undefined
 }

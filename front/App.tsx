@@ -5,35 +5,76 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { AuthProvider } from './src/context/AuthContext'
+import { AuthProvider, useAuth } from './src/context/AuthContext'
+import { CartProvider } from './src/context/CartContext'
 import HomeScreen from './src/screens/HomeScreen'
-import MenuScreen from './src/screens/MenuScreen'
-import FavoritosScreen from './src/screens/FavoritosScreen'
 import PedidosScreen from './src/screens/PedidosScreen'
-import PerfilScreen from './src/screens/PerfilScreen'
-import StitchTabBar from './src/components/StitchTabBar'
-import type { RootStackParamList, TabParamList } from './src/types'
+import MenuScreen from './src/screens/MenuScreen'
+import LoginScreen from './src/screens/LoginScreen'
+import AdminScreen from './src/screens/AdminScreen'
+import ClientTabBar from './src/components/ClientTabBar'
+import type { RootStackParamList, ClientTabParamList, AdminTabParamList } from './src/types'
 import { T, CUSTOM_FONTS } from './src/theme'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
-const Tab = createBottomTabNavigator<TabParamList>()
+const ClientTab = createBottomTabNavigator<ClientTabParamList>()
+const AdminTab = createBottomTabNavigator<AdminTabParamList>()
 
-/**
- * MainTabs: Las 4 pestañas principales de la app.
- * "Perfil" usa PerfilScreen que decide internamente si mostrar Login o Admin,
- * manteniendo siempre el tab bar visible (fiel al diseño Stitch).
- */
-function MainTabs() {
+function ClientTabs() {
   return (
-    <Tab.Navigator
-      tabBar={(props) => <StitchTabBar {...props} />}
+    <ClientTab.Navigator
+      tabBar={(props) => <ClientTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Explorar" component={HomeScreen} />
-      <Tab.Screen name="Favoritos" component={FavoritosScreen} />
-      <Tab.Screen name="Pedidos" component={PedidosScreen} />
-      <Tab.Screen name="Perfil" component={PerfilScreen} />
-    </Tab.Navigator>
+      <ClientTab.Screen name="Explorar" component={HomeScreen} />
+      <ClientTab.Screen name="Pedidos" component={PedidosScreen} />
+    </ClientTab.Navigator>
+  )
+}
+
+function AdminTabs() {
+  return (
+    <AdminTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: { display: 'none' },
+      }}
+    >
+      <AdminTab.Screen name="AdminHome" component={AdminScreen} />
+    </AdminTab.Navigator>
+  )
+}
+
+function RootNavigator() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.colors.background }}>
+        <ActivityIndicator size="large" color={T.colors.primary} />
+      </View>
+    )
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
+          <Stack.Screen name="AdminTabs" component={AdminTabs} />
+        ) : (
+          <>
+            <Stack.Screen name="ClientTabs" component={ClientTabs} />
+            <Stack.Screen name="Menu" component={MenuScreen} />
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
+          </>
+        )}
+      </Stack.Navigator>
+      <StatusBar style="dark" />
+    </NavigationContainer>
   )
 }
 
@@ -51,21 +92,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {/* MainTabs es el punto de entrada. Todas las pantallas de usuario
-                y el panel de admin viven dentro de las tabs. */}
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-            {/* Menu es la única pantalla que justifica salir del tab context
-                ya que es una vista de detalle full-screen */}
-            <Stack.Screen
-              name="Menu"
-              component={MenuScreen}
-              options={{ headerShown: false }}
-            />
-          </Stack.Navigator>
-          <StatusBar style="dark" />
-        </NavigationContainer>
+        <CartProvider>
+          <RootNavigator />
+        </CartProvider>
       </AuthProvider>
     </SafeAreaProvider>
   )

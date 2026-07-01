@@ -1,18 +1,22 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View,
   Text,
+  TextInput,
   FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Modal,
+  Animated,
+  PanResponder,
 } from 'react-native'
 import MapView, { styleURL, Camera, Marker } from '../components/MapViewWrapper'
 import { useNavigation } from '@react-navigation/native'
 import { useLocation } from '../hooks/useLocation'
-import { fetchCarritosCercanos } from '../supabaseClient'
-import type { CarritoConDistancia } from '../types'
+import { fetchCarritos, fetchCarritosCercanos, buscarCarritos } from '../supabaseClient'
+import type { Carrito, CarritoConDistancia } from '../types'
 import { T } from '../theme'
 
 export default function HomeScreen() {
@@ -22,31 +26,96 @@ export default function HomeScreen() {
   const [carritos, setCarritos] = useState<CarritoConDistancia[]>([])
   const [loading, setLoading] = useState(true)
   const [soloAbiertos, setSoloAbiertos] = useState(false)
+  const [mostrarTodos, setMostrarTodos] = useState(false)
+  const [radioKm, setRadioKm] = useState(10)
+  const [showDistOpts, setShowDistOpts] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const [searchResults, setSearchResults] = useState<CarritoConDistancia[]>([])
+  const [searching, setSearching] = useState(false)
   const [currentZoom, setCurrentZoom] = useState(14)
+  const [showOwnerModal, setShowOwnerModal] = useState(false)
+
+  /* Bottom Sheet expand */
+  const sheetAnim = useRef(new Animated.Value(SHEET_MAX)).current
+  const sheetMaxVal = useRef(new Animated.Value(SHEET_MAX)).current
+  const sheetExpandedRef = useRef(true)
+  const [sheetExpanded, setSheetExpanded] = useState(true)
+
+  const animateSheet = useCallback((toValue: number, expanded: boolean) => {
+    sheetExpandedRef.current = expanded
+    setSheetExpanded(expanded)
+    Animated.timing(sheetAnim, {
+      toValue,
+      duration: 250,
+      useNativeDriver: true,
+    }).start()
+  }, [sheetAnim])
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 5,
+      onPanResponderRelease: (_evt, gesture) => {
+        if (gesture.dy < -30) {
+          animateSheet(SHEET_MAX, true)
+        } else if (gesture.dy > 30) {
+          animateSheet(SHEET_PEEK, false)
+        } else {
+          const wasExpanded = sheetExpandedRef.current
+          animateSheet(wasExpanded ? SHEET_PEEK : SHEET_MAX, !wasExpanded)
+        }
+      },
+    }),
+  ).current
 
   const cargarCarritos = useCallback(async () => {
-    if (!location) return
+    if (!location && !mostrarTodos) return
     setLoading(true)
     try {
-      const data = await fetchCarritosCercanos(
-        location.latitude,
-        location.longitude,
-        20,
-      )
+      let data: CarritoConDistancia[]
+      if (mostrarTodos) {
+        const todos = await fetchCarritos()
+        data = todos.map((c) => ({ ...c, distancia_km: 0 }))
+      } else {
+        data = await fetchCarritosCercanos(
+          location!.latitude,
+          location!.longitude,
+          radioKm,
+        )
+      }
       setCarritos(data)
     } catch {
       // Silently fail
     }
     setLoading(false)
-  }, [location])
+  }, [location, mostrarTodos, radioKm])
 
   useEffect(() => {
     cargarCarritos()
   }, [cargarCarritos])
 
-  const carritosFiltrados = soloAbiertos
-    ? carritos.filter((c) => c.estado_abierto)
-    : carritos
+  useEffect(() => {
+    if (!showSearch || searchText.length < 2) return
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const results = await buscarCarritos(searchText)
+        setSearchResults(results.map((r) => ({ ...r, distancia_km: 0 } as CarritoConDistancia)))
+      } catch {
+        setSearchResults([])
+      }
+      setSearching(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchText, showSearch])
+
+  const carritosFiltrados = carritos.filter((c) => {
+    if (soloAbiertos && !c.estado_abierto) return false
+    return true
+  })
+
+  const displayCarritos = showSearch && searchText.length >= 2 ? searchResults : carritosFiltrados
 
   if (locLoading) {
     return (
@@ -95,7 +164,7 @@ export default function HomeScreen() {
               id={c.id}
               lngLat={[c.longitud, c.latitud]}
               onPress={() =>
-                navigation.navigate('Menu', { carritoId: c.id, nombre: c.nombre })
+                navigation.navigate('Menu', { carritoId: c.id, nombre: c.nombre, imagen_url: c.imagen_url, icono: c.icono })
               }
             >
               <View style={styles.markerContainer}>
@@ -105,7 +174,7 @@ export default function HomeScreen() {
                     c.estado_abierto ? styles.markerOpen : styles.markerClosed,
                   ]}
                 >
-                  <Text style={styles.markerIcon}>🍔</Text>
+                  <Text style={styles.markerIcon}>{c.icono || '🍔'}</Text>
                 </View>
                 <View
                   style={[
@@ -128,13 +197,43 @@ export default function HomeScreen() {
 
       {/* FLOATING TOP BAR */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.topBarIconBtn}>
-          <Text style={styles.topBarIcon}>🔍</Text>
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Carritos Al Toque</Text>
-        <TouchableOpacity style={styles.topBarIconBtn}>
-          <Text style={styles.topBarIcon}>⚙️</Text>
-        </TouchableOpacity>
+        {showSearch ? (
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar carrito..."
+              placeholderTextColor={T.colors.onSurfaceVariant}
+              value={searchText}
+              onChangeText={setSearchText}
+              autoFocus
+            />
+            <TouchableOpacity
+              style={styles.topBarIconBtn}
+              onPress={() => {
+                setShowSearch(false)
+                setSearchText('')
+              }}
+            >
+              <Text style={styles.topBarIcon}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.topBarIconBtn}
+              onPress={() => setShowSearch(true)}
+            >
+              <Text style={styles.topBarIcon}>🔍</Text>
+            </TouchableOpacity>
+            <Text style={styles.topBarTitle}>Carritos Al Toque</Text>
+            <TouchableOpacity
+              style={styles.topBarIconBtn}
+              onPress={() => setShowOwnerModal(true)}
+            >
+              <Text style={styles.topBarIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* FILTER CHIPS */}
@@ -151,34 +250,125 @@ export default function HomeScreen() {
         >
           <Text style={[styles.chipIcon, soloAbiertos && styles.chipIconActive]}>✓</Text>
           <Text style={[styles.chipText, soloAbiertos && styles.chipTextActive]}>
-            Abiertos ahora
+            Abiertos
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.chip} activeOpacity={0.7}>
-          <Text style={styles.chipIcon}>⭐</Text>
-          <Text style={styles.chipText}>Mejor valorados</Text>
+        <TouchableOpacity
+          style={[styles.chip, mostrarTodos && styles.chipActive]}
+          onPress={() => setMostrarTodos(!mostrarTodos)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.chipIcon, mostrarTodos && styles.chipIconActive]}>🌐</Text>
+          <Text style={[styles.chipText, mostrarTodos && styles.chipTextActive]}>Todos</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.chip} activeOpacity={0.7}>
-          <Text style={styles.chipIcon}>📍</Text>
-          <Text style={styles.chipText}>Menos de 1km</Text>
-        </TouchableOpacity>
+        {!mostrarTodos && (
+          <TouchableOpacity
+            style={[styles.chip, showDistOpts && styles.chipActive]}
+            onPress={() => setShowDistOpts(!showDistOpts)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.chipIcon, showDistOpts && styles.chipIconActive]}>📍</Text>
+            <Text style={[styles.chipText, showDistOpts && styles.chipTextActive]}>
+              {radioKm}km
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
-      {/* BOTTOM SHEET - VENDOR CARDS */}
-      <View style={styles.bottomSheet}>
-        <View style={styles.sheetHandle} />
+      {/* DISTANCE OPTIONS */}
+      {showDistOpts && !mostrarTodos && (
+        <View style={styles.distanceBar}>
+              {[1, 2, 5, 10, 20, 30].map((d) => (
+            <TouchableOpacity
+              key={d}
+              style={[styles.distanceChip, radioKm === d && styles.distanceChipActive]}
+              onPress={() => { setRadioKm(d); setShowDistOpts(false) }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.distanceChipText, radioKm === d && styles.distanceChipTextActive]}>
+                {d}km
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* OWNER ACCESS MODAL */}
+      <Modal
+        visible={showOwnerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOwnerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Panel de Dueños</Text>
+            <Text style={styles.modalDesc}>
+              ¿Sos dueño de un carrito? Iniciá sesión para gestionar tu negocio.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setShowOwnerModal(false)
+                navigation.navigate('Login')
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>Iniciar sesión</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={() => setShowOwnerModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCloseText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* BOTTOM SHEET - VENDOR CARDS (expandable) */}
+      <Animated.View
+        style={[
+          styles.bottomSheet,
+          { transform: [{ translateY: Animated.subtract(sheetMaxVal, sheetAnim) }] },
+        ]}
+      >
+        <View style={styles.sheetHandleWrapper} {...panResponder.panHandlers}>
+          <View style={styles.sheetHandle} />
+        </View>
         <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>
-            {soloAbiertos ? 'Abiertos ahora' : 'Carritos cercanos'}
-          </Text>
-          <Text style={styles.sheetCount}>{carritosFiltrados.length}</Text>
+          <View style={styles.sheetTitleRow}>
+            <Text style={styles.sheetTitle}>
+              {showSearch && searchText.length >= 2
+                ? 'Resultados'
+                : soloAbiertos
+                  ? 'Abiertos ahora'
+                  : mostrarTodos
+                    ? 'Todos los carritos'
+                    : 'Carritos cercanos'}
+            </Text>
+            <Text style={styles.sheetCount}>{displayCarritos.length}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              const wasExpanded = sheetExpandedRef.current
+              animateSheet(wasExpanded ? SHEET_PEEK : SHEET_MAX, !wasExpanded)
+            }}
+            activeOpacity={0.7}
+            style={styles.sheetToggleBtn}
+          >
+            <Text style={styles.sheetToggleIcon}>
+              {sheetExpanded ? '▼' : '▲'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {loading || searching ? (
           <ActivityIndicator size="small" color={T.colors.primary} style={{ marginTop: 20 }} />
         ) : (
           <FlatList
-            data={carritosFiltrados}
+            data={displayCarritos}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.cardList}
@@ -190,6 +380,8 @@ export default function HomeScreen() {
                   navigation.navigate('Menu', {
                     carritoId: item.id,
                     nombre: item.nombre,
+                    imagen_url: item.imagen_url,
+                    icono: item.icono,
                   })
                 }
               >
@@ -200,14 +392,16 @@ export default function HomeScreen() {
                       {item.direccion_texto || 'Sin dirección'}
                     </Text>
                     <View style={styles.cardTags}>
-                      <View style={styles.tagDistance}>
-                        <Text style={styles.tagDistanceIcon}>📍</Text>
-                        <Text style={styles.tagDistanceText}>
-                          {item.distancia_km < 1
-                            ? `${(item.distancia_km * 1000).toFixed(0)}m`
-                            : `${item.distancia_km.toFixed(1)}km`}
-                        </Text>
-                      </View>
+                      {item.distancia_km > 0 ? (
+                        <View style={styles.tagDistance}>
+                          <Text style={styles.tagDistanceIcon}>📍</Text>
+                          <Text style={styles.tagDistanceText}>
+                            {item.distancia_km < 1
+                              ? `${(item.distancia_km * 1000).toFixed(0)}m`
+                              : `${item.distancia_km.toFixed(1)}km`}
+                          </Text>
+                        </View>
+                      ) : null}
                       <View
                         style={[
                           styles.tagStatus,
@@ -230,16 +424,23 @@ export default function HomeScreen() {
             )}
             ListEmptyComponent={
               <Text style={styles.emptyText}>
-                No hay carritos cerca en este momento
+                {showSearch && searchText.length >= 2
+                  ? 'No se encontraron carritos'
+                  : mostrarTodos
+                    ? 'No hay carritos registrados'
+                    : 'No hay carritos cerca en este momento'}
               </Text>
             }
           />
         )}
-      </View>
+      </Animated.View>
 
     </View>
   )
 }
+
+const SHEET_PEEK = 120
+const SHEET_MAX = 400
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: T.colors.background },
@@ -248,12 +449,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: T.colors.background,
+    backgroundColor: "T.colors.background",
   },
   loadingText: {
     marginTop: 12,
     color: T.colors.onSurfaceVariant,
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: T.font.bodyMd.fontFamily,
   },
 
@@ -284,6 +485,21 @@ const styles = StyleSheet.create({
     ...T.font.headlineMd,
     color: T.colors.primary,
     fontSize: 16,
+  },
+  searchRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  searchInput: {
+    flex: 1,
+    height: 36,
+    backgroundColor: T.colors.surfaceContainerHigh,
+    borderRadius: T.radius.full,
+    paddingHorizontal: 14,
+    ...T.font.bodyMd,
+    color: T.colors.onSurface,
   },
 
   /* Filter Chips */
@@ -323,42 +539,100 @@ const styles = StyleSheet.create({
     color: T.colors.onPrimaryContainer,
   },
 
-  /* Bottom Sheet */
+  /* Distance Selector */
+  distanceBar: {
+    position: 'absolute',
+    top: 168,
+    left: T.spacing.marginMain,
+    right: T.spacing.marginMain,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  distanceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: T.radius.full,
+    backgroundColor: T.colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: T.colors.surfaceVariant,
+  },
+  distanceChipActive: {
+    backgroundColor: T.colors.primaryContainer,
+    borderColor: 'transparent',
+  },
+  distanceChipText: {
+    ...T.font.labelSm,
+    color: T.colors.onSurfaceVariant,
+  },
+  distanceChipTextActive: {
+    color: T.colors.onPrimaryContainer,
+    fontWeight: '600',
+  },
+
+  /* Bottom Sheet (expandable) */
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    height: SHEET_MAX, // module-level constant
     backgroundColor: T.colors.surface,
     borderTopLeftRadius: T.radius.xl,
     borderTopRightRadius: T.radius.xl,
     paddingHorizontal: T.spacing.marginMain,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 12,
-    maxHeight: 360,
     ...T.shadow.sheet,
+  },
+  sheetHandleWrapper: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  sheetHandleHitArea: {
+    paddingHorizontal: 24,
+    paddingVertical: 4,
   },
   sheetHandle: {
     width: 48,
     height: 5,
     borderRadius: 3,
     backgroundColor: T.colors.surfaceVariant,
-    alignSelf: 'center',
-    marginBottom: 12,
   },
   sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: 12,
+  },
+  sheetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 15,
   },
   sheetTitle: {
     ...T.font.headlineSm,
     color: T.colors.onSurface,
   },
   sheetCount: {
-    ...T.font.labelMd,
+    ...T.font.bodyMd,
     color: T.colors.primary,
+    backgroundColor: T.colors.primaryContainer + '33',
+    borderRadius: T.radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    fontWeight: 'bold'
+  },
+  sheetToggleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetToggleIcon: {
+    fontSize: 14,
+    color: T.colors.onSurfaceVariant,
   },
 
   cardList: {
@@ -425,6 +699,54 @@ const styles = StyleSheet.create({
     color: T.colors.onSurfaceVariant,
     marginTop: 24,
     ...T.font.bodyMd,
+  },
+
+  /* Owner Modal */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  modalContent: {
+    backgroundColor: T.colors.surfaceContainerLowest,
+    borderRadius: T.radius.xl,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: {
+    ...T.font.headlineMd,
+    color: T.colors.onSurface,
+    marginBottom: 8,
+  },
+  modalDesc: {
+    ...T.font.bodyMd,
+    color: T.colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: T.colors.primaryContainer,
+    borderRadius: T.radius.lg,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalButtonText: {
+    ...T.font.headlineSm,
+    color: T.colors.onPrimaryContainer,
+  },
+  modalClose: {
+    paddingVertical: 8,
+  },
+  modalCloseText: {
+    ...T.font.bodyMd,
+    color: T.colors.onSurfaceVariant,
   },
 
   /* Markers */
