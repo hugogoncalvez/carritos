@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E6F4FE"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -42,7 +47,14 @@
         }
       ],
       "@maplibre/maplibre-react-native",
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-splash-screen"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6aad6b8e-1c3e-4abe-81fe-449532a6f9c9"
+      }
+    },
+    "owner": "hugog"
   }
 }

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Carrito, Menu, CarritoConDistancia } from './types'
+import type { Carrito, Menu, CarritoConDistancia, Review, CarritoTag, Pedido } from './types'
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -222,4 +222,99 @@ export async function deleteMenuImage(menuId: string, imageUrl: string) {
   if (updateError) {
     throw new Error(`Error al limpiar URL en la base de datos: ${updateError.message}`)
   }
+}
+
+// REVIEWS
+export async function fetchReviews(carritoId: string) {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('rating')
+    .eq('carrito_id', carritoId)
+  if (error) throw error
+  return data as Pick<Review, 'rating'>[]
+}
+
+export async function submitReview(carritoId: string, rating: number) {
+  const { error } = await supabase
+    .from('reviews')
+    .insert({ carrito_id: carritoId, rating })
+  if (error) throw error
+}
+
+export async function fetchRatingAvg(carritoId: string) {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('rating')
+    .eq('carrito_id', carritoId)
+  if (error) throw error
+  const ratings = data as Pick<Review, 'rating'>[]
+  if (ratings.length === 0) return { avg: 0, count: 0 }
+  const sum = ratings.reduce((a, b) => a + b.rating, 0)
+  return { avg: Math.round((sum / ratings.length) * 10) / 10, count: ratings.length }
+}
+
+// TAGS
+export async function fetchTags(carritoId: string) {
+  const { data, error } = await supabase
+    .from('carrito_tags')
+    .select('*')
+    .eq('carrito_id', carritoId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data as CarritoTag[]
+}
+
+export async function addTag(carritoId: string, tag: string) {
+  const { data, error } = await supabase
+    .from('carrito_tags')
+    .insert({ carrito_id: carritoId, tag })
+    .select()
+    .single()
+  if (error) throw error
+  return data as CarritoTag
+}
+
+export async function removeTag(tagId: string) {
+  const { error } = await supabase
+    .from('carrito_tags')
+    .delete()
+    .eq('id', tagId)
+  if (error) throw error
+}
+
+// PEDIDOS
+export async function createPedido(carritoId: string, items: Pedido['items'], total: number) {
+  const { data, error } = await supabase
+    .from('pedidos')
+    .insert({ carrito_id: carritoId, items, total, estado: 'pendiente' })
+    .select()
+    .single()
+  if (error) throw error
+  return data as Pedido
+}
+
+export async function fetchPedidos(carritoId: string) {
+  const { data, error } = await supabase
+    .from('pedidos')
+    .select('*')
+    .eq('carrito_id', carritoId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data as Pedido[]
+}
+
+export async function updatePedidoEstado(pedidoId: string, estado: Pedido['estado']) {
+  const { error } = await supabase
+    .from('pedidos')
+    .update({ estado })
+    .eq('id', pedidoId)
+  if (error) throw error
+}
+
+export async function updatePedidoItems(pedidoId: string, items: Pedido['items']) {
+  const { error } = await supabase
+    .from('pedidos')
+    .update({ items })
+    .eq('id', pedidoId)
+  if (error) throw error
 }

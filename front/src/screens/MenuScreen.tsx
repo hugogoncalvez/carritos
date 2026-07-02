@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
@@ -12,34 +12,58 @@ import {
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
-import { supabase, fetchMenus } from '../supabaseClient'
+import { supabase, fetchMenus, fetchRatingAvg, submitReview } from '../supabaseClient'
 import type { Menu, RootStackParamList } from '../types'
 import { useCart } from '../context/CartContext'
-import { T } from '../theme'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+import { useTheme } from '../theme'
 
 type MenuRoute = RouteProp<RootStackParamList, 'Menu'>
 
 export default function MenuScreen() {
+  const { T } = useTheme()
   const route = useRoute<MenuRoute>()
   const navigation = useNavigation()
   const { carritoId, nombre, imagen_url: carritoImagen, icono: carritoIcono } = route.params
+
+  const styles = useMemo(() => getStyles(T), [T])
   const [menus, setMenus] = useState<Menu[]>([])
   const { addItem, items } = useCart()
   const [loading, setLoading] = useState(true)
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
   const [latitud, setLatitud] = useState<number | null>(null)
   const [longitud, setLongitud] = useState<number | null>(null)
+  const [ratingAvg, setRatingAvg] = useState(0)
+  const [ratingCount, setRatingCount] = useState(0)
+  const [userRating, setUserRating] = useState(0)
+  const [hasVoted, setHasVoted] = useState(false)
+  const [voting, setVoting] = useState(false)
 
   useEffect(() => {
     ;(async () => {
       try {
-        const data = await fetchMenus(carritoId)
+        const [data, rating] = await Promise.all([
+          fetchMenus(carritoId),
+          fetchRatingAvg(carritoId),
+        ])
         setMenus(data)
+        setRatingAvg(rating.avg)
+        setRatingCount(rating.count)
       } catch {
         Alert.alert('Error', 'No se pudo cargar el menú')
       }
       setLoading(false)
     })()
+  }, [carritoId])
+
+  useEffect(() => {
+    AsyncStorage.getItem(`@voted_${carritoId}`).then((val) => {
+      if (val) {
+        setHasVoted(true)
+        setUserRating(Number(val))
+      }
+    })
   }, [carritoId])
 
   const handleAddToCart = (menu: Menu) => {
@@ -99,12 +123,10 @@ export default function MenuScreen() {
           style={styles.topBarBtn}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.topBarBtnIcon}>←</Text>
+          <MaterialIcons name="arrow-back" size={22} color={T.colors.onSurfaceVariant} />
         </TouchableOpacity>
         <Text style={styles.topBarTitle} numberOfLines={1}>{nombre}</Text>
-        <TouchableOpacity style={styles.topBarBtn}>
-          <Text style={styles.topBarBtnIcon}>🔍</Text>
-        </TouchableOpacity>
+        <View style={styles.topBarBtn} />
       </View>
 
       <FlatList
@@ -141,6 +163,46 @@ export default function MenuScreen() {
                     <View style={styles.heroTagDot} />
                     <Text style={styles.heroTagOpenText}>Abierto</Text>
                   </View>
+                </View>
+                {/* RATING */}
+                <View style={styles.ratingSection}>
+                  <View style={styles.ratingStars}>
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const filled = star <= (hasVoted ? userRating : Math.round(ratingAvg))
+                      return (
+                        <TouchableOpacity
+                          key={star}
+                          onPress={async () => {
+                            if (hasVoted || voting) return
+                            setVoting(true)
+                            setUserRating(star)
+                            try {
+                              await submitReview(carritoId, star)
+                              const updated = await fetchRatingAvg(carritoId)
+                              setRatingAvg(updated.avg)
+                              setRatingCount(updated.count)
+                              setHasVoted(true)
+                              await AsyncStorage.setItem(`@voted_${carritoId}`, String(star))
+                            } catch {
+                              setUserRating(0)
+                              Alert.alert('Error', 'No se pudo guardar tu valoración')
+                            }
+                            setVoting(false)
+                          }}
+                          activeOpacity={0.6}
+                        >
+                          <Text style={[styles.starIcon, filled && styles.starIconFilled]}>
+                            {filled ? '★' : '☆'}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    })}
+                  </View>
+                  {ratingCount > 0 && (
+                    <Text style={styles.ratingText}>
+                      {ratingAvg} ({ratingCount} {ratingCount === 1 ? 'valoración' : 'valoraciones'})
+                    </Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -224,7 +286,7 @@ export default function MenuScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+function getStyles(T: any) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: T.colors.background },
   centered: {
     flex: 1,
@@ -337,6 +399,27 @@ const styles = StyleSheet.create({
     ...T.font.labelSm,
     color: T.colors.onTertiary,
     fontWeight: '600',
+  },
+  ratingSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  starIcon: {
+    fontSize: 22,
+    color: T.colors.onSurfaceVariant,
+  },
+  starIconFilled: {
+    color: '#FFB800',
+  },
+  ratingText: {
+    ...T.font.labelMd,
+    color: T.colors.onSurfaceVariant,
   },
 
   /* Section */
@@ -454,4 +537,4 @@ const styles = StyleSheet.create({
     ...T.font.headlineSm,
     color: '#FFFFFF',
   },
-})
+}) }

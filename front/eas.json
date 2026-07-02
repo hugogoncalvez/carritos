@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 5.0.0",
-    "requireCommit": false
+    "requireCommit": false,
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -9,18 +10,20 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "local": true
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "local": true
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://nsniwrececihrgtvqfds.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zbml3cmVjZWNpaHJndHZxZmRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDUyNDQsImV4cCI6MjA5ODAyMTI0NH0.rI9YehW-1U4mHM9Dmb-ruol4R6FDO_NdFx0jUyK3e0s",
+        "EXPO_PUBLIC_MAPLIBRE_STYLE_URL": "https://tiles.openfreemap.org/styles/liberty"
+      }
     },
     "production": {
-      "local": true,
       "android": {
         "buildType": "app-bundle"
       }

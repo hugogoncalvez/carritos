@@ -10,10 +10,14 @@ import {
 } from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCart } from '../context/CartContext'
-import { T } from '../theme'
+import { useMemo } from 'react'
+import { useTheme } from '../theme'
 
 export default function PedidosScreen() {
+  const { T } = useTheme()
   const { groups, totalItems, updateQuantity, removeItem, clearVendorCart, loading } = useCart()
+
+  const styles = useMemo(() => getStyles(T), [T])
 
   const handleSendWhatsApp = (whatsapp: string | null, vendorName: string, items: { nombre: string; precio: number; cantidad: number }[]) => {
     if (!whatsapp) {
@@ -162,7 +166,7 @@ export default function PedidosScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+function getStyles(T: any) { return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: T.colors.background,
@@ -315,4 +319,4 @@ const styles = StyleSheet.create({
     ...T.font.headlineSm,
     color: '#FFFFFF',
   },
-})
+}) }

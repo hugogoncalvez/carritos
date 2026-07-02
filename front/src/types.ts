@@ -26,6 +26,8 @@ export type Menu = {
 
 export type CarritoConDistancia = Carrito & { distancia_km: number }
 
+export type CarritoConRating = Carrito & { rating_avg: number; rating_count: number }
+
 export type CartItem = {
   id: string
   menuId: string
@@ -35,6 +37,37 @@ export type CartItem = {
   nombre: string
   precio: number
   cantidad: number
+}
+
+export type Review = {
+  id: string
+  carrito_id: string
+  rating: number
+  created_at: string
+}
+
+export type CarritoTag = {
+  id: string
+  carrito_id: string
+  tag: string
+  created_at: string
+}
+
+export type PedidoItem = {
+  menuId: string
+  nombre: string
+  precio: number
+  cantidad: number
+  cumplido: boolean
+}
+
+export type Pedido = {
+  id: string
+  carrito_id: string
+  items: PedidoItem[]
+  total: number
+  estado: 'pendiente' | 'completado' | 'cancelado'
+  created_at: string
 }
 
 export type CartGroup = {

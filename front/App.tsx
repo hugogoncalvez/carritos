@@ -1,4 +1,6 @@
+import { useCallback } from 'react'
 import { useFonts } from 'expo-font'
+import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { View, ActivityIndicator } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -7,6 +9,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { CartProvider } from './src/context/CartContext'
+import { ThemeProvider, useTheme } from './src/theme'
 import HomeScreen from './src/screens/HomeScreen'
 import PedidosScreen from './src/screens/PedidosScreen'
 import MenuScreen from './src/screens/MenuScreen'
@@ -14,7 +17,9 @@ import LoginScreen from './src/screens/LoginScreen'
 import AdminScreen from './src/screens/AdminScreen'
 import ClientTabBar from './src/components/ClientTabBar'
 import type { RootStackParamList, ClientTabParamList, AdminTabParamList } from './src/types'
-import { T, CUSTOM_FONTS } from './src/theme'
+import { CUSTOM_FONTS } from './src/theme'
+
+SplashScreen.preventAutoHideAsync()
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const ClientTab = createBottomTabNavigator<ClientTabParamList>()
@@ -47,6 +52,7 @@ function AdminTabs() {
 
 function RootNavigator() {
   const { user, loading } = useAuth()
+  const { T, isDark } = useTheme()
 
   if (loading) {
     return (
@@ -73,29 +79,32 @@ function RootNavigator() {
           </>
         )}
       </Stack.Navigator>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavigationContainer>
   )
 }
 
 export default function App() {
   const [fontsLoaded] = useFonts(CUSTOM_FONTS)
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync()
+    }
+  }, [fontsLoaded])
 
   if (!fontsLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.colors.background }}>
-        <ActivityIndicator size="large" color={T.colors.primary} />
-      </View>
-    )
+    return null
   }
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <CartProvider>
-          <RootNavigator />
-        </CartProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider onLayout={onLayoutRootView}>
+        <AuthProvider>
+          <CartProvider>
+            <RootNavigator />
+          </CartProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ThemeProvider>
   )
 }

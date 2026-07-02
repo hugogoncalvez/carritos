@@ -1,7 +1,8 @@
+import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { T } from '../theme'
+import { useTheme } from '../theme'
 import { useCart } from '../context/CartContext'
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs'
 
@@ -13,7 +14,72 @@ const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
 export default function ClientTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
   const { totalItems } = useCart()
+  const { T } = useTheme()
   const currentRoute = state.routes[state.index].name
+
+  const styles = useMemo(() => StyleSheet.create({
+    bar: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      backgroundColor: T.colors.surfaceContainerLowest,
+      paddingTop: 8,
+      height: 72,
+      borderTopWidth: 1,
+      borderTopColor: T.colors.surfaceContainerHigh,
+      ...T.shadow.nav,
+    },
+    tabWrapper: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    pill: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      minWidth: 64,
+    },
+    pillActive: {
+      backgroundColor: T.colors.primaryContainer,
+    },
+    iconWrapper: {
+      position: 'relative',
+    },
+    badge: {
+      position: 'absolute',
+      top: -6,
+      right: -10,
+      backgroundColor: T.colors.error,
+      borderRadius: 10,
+      minWidth: 18,
+      height: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+    },
+    badgeText: {
+      color: T.colors.onError,
+      fontSize: 10,
+      fontWeight: '700',
+      fontFamily: 'WorkSans-SemiBold',
+    },
+    label: {
+      fontSize: 10,
+      lineHeight: 14,
+      marginTop: 2,
+      fontFamily: 'WorkSans-Medium',
+    },
+    labelActive: {
+      color: T.colors.onPrimaryContainer,
+      fontWeight: '600',
+    },
+    labelInactive: {
+      color: T.colors.onSurfaceVariant,
+    },
+  }), [T])
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -40,7 +106,7 @@ export default function ClientTabBar({ state, navigation }: BottomTabBarProps) {
                 <MaterialIcons
                   name={iconName as any}
                   size={22}
-                  color={isActive ? T.colors.onPrimaryContainer : T.colors.inverseOnSurface}
+                  color={isActive ? T.colors.onPrimaryContainer : T.colors.onSurfaceVariant}
                 />
                 {route.name === 'Pedidos' && totalItems > 0 && (
                   <View style={styles.badge}>
@@ -60,65 +126,3 @@ export default function ClientTabBar({ state, navigation }: BottomTabBarProps) {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: T.colors.inverseSurface,
-    paddingTop: 8,
-    height: 72,
-    ...T.shadow.nav,
-  },
-  tabWrapper: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  pill: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    minWidth: 64,
-  },
-  pillActive: {
-    backgroundColor: T.colors.primaryContainer,
-  },
-  iconWrapper: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    backgroundColor: T.colors.error,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: T.colors.onError,
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: 'WorkSans-SemiBold',
-  },
-  label: {
-    fontSize: 10,
-    lineHeight: 14,
-    marginTop: 2,
-    fontFamily: 'WorkSans-Medium',
-  },
-  labelActive: {
-    color: T.colors.onPrimaryContainer,
-    fontWeight: '600',
-  },
-  labelInactive: {
-    color: T.colors.inverseOnSurface,
-  },
-})

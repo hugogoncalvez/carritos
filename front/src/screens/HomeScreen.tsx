@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Image,
   ScrollView,
   Modal,
   Animated,
@@ -17,11 +18,15 @@ import { useNavigation } from '@react-navigation/native'
 import { useLocation } from '../hooks/useLocation'
 import { fetchCarritos, fetchCarritosCercanos, buscarCarritos } from '../supabaseClient'
 import type { Carrito, CarritoConDistancia } from '../types'
-import { T } from '../theme'
+import { useTheme } from '../theme'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 
 export default function HomeScreen() {
+  const { T, isDark, setDark } = useTheme()
   const navigation = useNavigation<any>()
   const { location, loading: locLoading } = useLocation()
+
+  const styles = useMemo(() => getStyles(T), [T])
 
   const [carritos, setCarritos] = useState<CarritoConDistancia[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,6 +40,19 @@ export default function HomeScreen() {
   const [searching, setSearching] = useState(false)
   const [currentZoom, setCurrentZoom] = useState(14)
   const [showOwnerModal, setShowOwnerModal] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const collapseAnim = useRef(new Animated.Value(0)).current
+
+  const toggleCollapse = useCallback(() => {
+    const toValue = collapsed ? 0 : 1
+    Animated.spring(collapseAnim, {
+      toValue,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start()
+    setCollapsed(!collapsed)
+  }, [collapsed, collapseAnim])
 
   /* Bottom Sheet expand */
   const sheetAnim = useRef(new Animated.Value(SHEET_MAX)).current
@@ -196,7 +214,13 @@ export default function HomeScreen() {
       </MapView>
 
       {/* FLOATING TOP BAR */}
-      <View style={styles.topBar}>
+      <Animated.View style={[
+        styles.topBar,
+        {
+          opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          transform: [{ translateY: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -130] }) }],
+        },
+      ]}>
         {showSearch ? (
           <View style={styles.searchRow}>
             <TextInput
@@ -221,28 +245,45 @@ export default function HomeScreen() {
           <>
             <TouchableOpacity
               style={styles.topBarIconBtn}
-              onPress={() => setShowSearch(true)}
+              onPress={toggleCollapse}
             >
-              <Text style={styles.topBarIcon}>🔍</Text>
+              <MaterialIcons name="keyboard-arrow-up" size={24} color={T.colors.onSurface} />
             </TouchableOpacity>
             <Text style={styles.topBarTitle}>Carritos Al Toque</Text>
-            <TouchableOpacity
-              style={styles.topBarIconBtn}
-              onPress={() => setShowOwnerModal(true)}
-            >
-              <Text style={styles.topBarIcon}>⚙️</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity
+                style={styles.topBarIconBtn}
+                onPress={() => setShowSearch(true)}
+              >
+                <MaterialIcons name="search" size={22} color={T.colors.onSurface} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.topBarIconBtn}
+                onPress={() => setDark(!isDark)}
+              >
+                <Text style={styles.topBarIcon}>{isDark ? '☀️' : '🌙'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.topBarIconBtn}
+                onPress={() => setShowOwnerModal(true)}
+              >
+                <MaterialIcons name="settings" size={22} color={T.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
           </>
         )}
-      </View>
+      </Animated.View>
 
       {/* FILTER CHIPS */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filterBarContent}
-      >
+      <Animated.View style={[styles.filterBar, {
+        opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+        transform: [{ translateY: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -130] }) }],
+      }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterBarContent}
+        >
         <TouchableOpacity
           style={[styles.chip, soloAbiertos && styles.chipActive]}
           onPress={() => setSoloAbiertos(!soloAbiertos)}
@@ -274,11 +315,37 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+      </Animated.View>
+
+      {/* FLOATING EXPAND BUTTON (visible when collapsed) */}
+      <Animated.View style={{
+        position: 'absolute',
+        top: 60,
+        right: T.spacing.marginMain,
+        opacity: collapseAnim,
+        transform: [{ translateY: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }],
+      }}>
+        <TouchableOpacity
+          onPress={toggleCollapse}
+          activeOpacity={0.8}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: T.colors.primaryContainer,
+            justifyContent: 'center',
+            alignItems: 'center',
+            ...T.shadow.card,
+          }}
+        >
+          <MaterialIcons name="keyboard-arrow-down" size={24} color={T.colors.onPrimaryContainer} />
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* DISTANCE OPTIONS */}
       {showDistOpts && !mostrarTodos && (
         <View style={styles.distanceBar}>
-              {[1, 2, 5, 10, 20, 30].map((d) => (
+          {[1, 2, 5, 10, 20, 30].map((d) => (
             <TouchableOpacity
               key={d}
               style={[styles.distanceChip, radioKm === d && styles.distanceChipActive]}
@@ -419,6 +486,13 @@ export default function HomeScreen() {
                       </View>
                     </View>
                   </View>
+                  {item.imagen_url ? (
+                    <Image source={{ uri: item.imagen_url }} style={styles.cardImage} />
+                  ) : (
+                    <View style={styles.cardImagePlaceholder}>
+                      <Text style={styles.cardImageEmoji}>{item.icono || '🍔'}</Text>
+                    </View>
+                  )}
                 </View>
               </TouchableOpacity>
             )}
@@ -442,367 +516,385 @@ export default function HomeScreen() {
 const SHEET_PEEK = 120
 const SHEET_MAX = 400
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.colors.background },
-  map: { flex: 1 },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: "T.colors.background",
-  },
-  loadingText: {
-    marginTop: 12,
-    color: T.colors.onSurfaceVariant,
-    fontSize: 18,
-    fontFamily: T.font.bodyMd.fontFamily,
-  },
+function getStyles(T: any) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.colors.background },
+    map: { flex: 1 },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: T.colors.background,
+    },
+    loadingText: {
+      marginTop: 12,
+      color: T.colors.onSurfaceVariant,
+      fontSize: 18,
+      fontFamily: T.font.bodyMd.fontFamily,
+    },
 
-  /* Top Bar */
-  topBar: {
-    position: 'absolute',
-    top: 56,
-    left: T.spacing.marginMain,
-    right: T.spacing.marginMain,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: T.colors.surfaceContainerLowest + 'E6',
-    borderRadius: T.radius.full,
-    paddingHorizontal: 8,
-    height: 48,
-    ...T.shadow.card,
-  },
-  topBarIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topBarIcon: { fontSize: 20 },
-  topBarTitle: {
-    ...T.font.headlineMd,
-    color: T.colors.primary,
-    fontSize: 16,
-  },
-  searchRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  searchInput: {
-    flex: 1,
-    height: 36,
-    backgroundColor: T.colors.surfaceContainerHigh,
-    borderRadius: T.radius.full,
-    paddingHorizontal: 14,
-    ...T.font.bodyMd,
-    color: T.colors.onSurface,
-  },
+    /* Top Bar */
+    topBar: {
+      position: 'absolute',
+      top: 56,
+      left: T.spacing.marginMain,
+      right: T.spacing.marginMain,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: T.colors.surfaceContainerLowest + 'E6',
+      borderRadius: T.radius.full,
+      paddingHorizontal: 8,
+      height: 48,
+      ...T.shadow.card,
+    },
+    topBarIconBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    topBarIcon: { fontSize: 20 },
+    topBarTitle: {
+      ...T.font.headlineMd,
+      color: T.colors.primary,
+      fontSize: 16,
+    },
+    searchRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    searchInput: {
+      flex: 1,
+      height: 36,
+      backgroundColor: T.colors.surfaceContainerHigh,
+      borderRadius: T.radius.full,
+      paddingHorizontal: 14,
+      ...T.font.bodyMd,
+      color: T.colors.onSurface,
+    },
 
-  /* Filter Chips */
-  filterBar: {
-    position: 'absolute',
-    top: 120,
-    left: 0,
-    right: 0,
-  },
-  filterBarContent: {
-    paddingHorizontal: T.spacing.marginMain,
-    gap: T.spacing.gutter,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: T.radius.full,
-    backgroundColor: T.colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: T.colors.surfaceVariant,
-    ...T.shadow.card,
-  },
-  chipActive: {
-    backgroundColor: T.colors.primaryContainer,
-    borderColor: 'transparent',
-  },
-  chipIcon: { fontSize: 14, color: T.colors.onSurfaceVariant },
-  chipIconActive: { color: T.colors.onPrimaryContainer },
-  chipText: {
-    ...T.font.labelMd,
-    color: T.colors.onSurfaceVariant,
-  },
-  chipTextActive: {
-    color: T.colors.onPrimaryContainer,
-  },
+    /* Filter Chips */
+    filterBar: {
+      position: 'absolute',
+      top: 120,
+      left: 0,
+      right: 0,
+    },
+    filterBarContent: {
+      paddingHorizontal: T.spacing.marginMain,
+      gap: T.spacing.gutter,
+      justifyContent: 'center',
 
-  /* Distance Selector */
-  distanceBar: {
-    position: 'absolute',
-    top: 168,
-    left: T.spacing.marginMain,
-    right: T.spacing.marginMain,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  distanceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: T.radius.full,
-    backgroundColor: T.colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: T.colors.surfaceVariant,
-  },
-  distanceChipActive: {
-    backgroundColor: T.colors.primaryContainer,
-    borderColor: 'transparent',
-  },
-  distanceChipText: {
-    ...T.font.labelSm,
-    color: T.colors.onSurfaceVariant,
-  },
-  distanceChipTextActive: {
-    color: T.colors.onPrimaryContainer,
-    fontWeight: '600',
-  },
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: T.radius.full,
+      backgroundColor: T.colors.surfaceContainerLowest,
+      borderWidth: 1,
+      borderColor: T.colors.surfaceVariant,
+      ...T.shadow.card,
+    },
+    chipActive: {
+      backgroundColor: T.colors.primaryContainer,
+      borderColor: 'transparent',
+    },
+    chipIcon: { fontSize: 16, color: T.colors.onSurfaceVariant },
+    chipIconActive: { color: T.colors.onPrimaryContainer },
+    chipText: {
+      ...T.font.labelMd,
+      color: T.colors.onSurfaceVariant,
+    },
+    chipTextActive: {
+      color: T.colors.onPrimaryContainer,
+    },
 
-  /* Bottom Sheet (expandable) */
-  bottomSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: SHEET_MAX, // module-level constant
-    backgroundColor: T.colors.surface,
-    borderTopLeftRadius: T.radius.xl,
-    borderTopRightRadius: T.radius.xl,
-    paddingHorizontal: T.spacing.marginMain,
-    paddingTop: 4,
-    paddingBottom: 12,
-    ...T.shadow.sheet,
-  },
-  sheetHandleWrapper: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  sheetHandleHitArea: {
-    paddingHorizontal: 24,
-    paddingVertical: 4,
-  },
-  sheetHandle: {
-    width: 48,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: T.colors.surfaceVariant,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 12,
-  },
-  sheetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 15,
-  },
-  sheetTitle: {
-    ...T.font.headlineSm,
-    color: T.colors.onSurface,
-  },
-  sheetCount: {
-    ...T.font.bodyMd,
-    color: T.colors.primary,
-    backgroundColor: T.colors.primaryContainer + '33',
-    borderRadius: T.radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-    fontWeight: 'bold'
-  },
-  sheetToggleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sheetToggleIcon: {
-    fontSize: 14,
-    color: T.colors.onSurfaceVariant,
-  },
+    /* Distance Selector */
+    distanceBar: {
+      position: 'absolute',
+      top: 168,
+      left: T.spacing.marginMain,
+      right: T.spacing.marginMain,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    distanceChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: T.radius.full,
+      backgroundColor: T.colors.surfaceContainerLowest,
+      borderWidth: 1,
+      borderColor: T.colors.surfaceVariant,
+    },
+    distanceChipActive: {
+      backgroundColor: T.colors.primaryContainer,
+      borderColor: 'transparent',
+    },
+    distanceChipText: {
+      ...T.font.labelSm,
+      color: T.colors.onSurfaceVariant,
+    },
+    distanceChipTextActive: {
+      color: T.colors.onPrimaryContainer,
+      fontWeight: '600',
+    },
 
-  cardList: {
-    gap: T.spacing.gutter,
-    paddingBottom: 8,
-  },
+    /* Bottom Sheet (expandable) */
+    bottomSheet: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: SHEET_MAX, // module-level constant
+      backgroundColor: T.colors.surface,
+      borderTopLeftRadius: T.radius.xl,
+      borderTopRightRadius: T.radius.xl,
+      paddingHorizontal: T.spacing.marginMain,
+      paddingTop: 4,
+      paddingBottom: 12,
+      ...T.shadow.sheet,
+    },
+    sheetHandleWrapper: {
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    sheetHandleHitArea: {
+      paddingHorizontal: 24,
+      paddingVertical: 4,
+    },
+    sheetHandle: {
+      width: 48,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: T.colors.surfaceVariant,
+    },
+    sheetHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      marginBottom: 12,
+    },
+    sheetTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 15,
+    },
+    sheetTitle: {
+      ...T.font.headlineSm,
+      color: T.colors.onSurface,
+    },
+    sheetCount: {
+      ...T.font.bodyMd,
+      color: T.colors.primary,
+      backgroundColor: T.colors.primaryContainer + '33',
+      borderRadius: T.radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 1,
+      fontWeight: 'bold'
+    },
+    sheetToggleBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    sheetToggleIcon: {
+      fontSize: 14,
+      color: T.colors.onSurfaceVariant,
+    },
 
-  /* Vendor Card */
-  vendorCard: {
-    backgroundColor: T.colors.surfaceContainerLowest,
-    borderRadius: T.radius.lg,
-    padding: T.spacing.insetCard,
-    ...T.shadow.card,
-  },
-  cardBody: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cardInfo: { flex: 1 },
-  cardName: {
-    ...T.font.headlineSm,
-    color: T.colors.onSurface,
-    marginBottom: 2,
-  },
-  cardDesc: {
-    ...T.font.bodyMd,
-    color: T.colors.onSurfaceVariant,
-    marginBottom: 8,
-  },
-  cardTags: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  tagDistance: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: T.colors.surfaceVariant,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: T.radius.full,
-  },
-  tagDistanceIcon: { fontSize: 10 },
-  tagDistanceText: {
-    ...T.font.labelSm,
-    color: T.colors.onSurfaceVariant,
-  },
-  tagStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: T.radius.full,
-  },
-  tagOpen: { backgroundColor: T.colors.tertiary },
-  tagClosed: { backgroundColor: T.colors.secondaryContainer },
-  tagStatusText: {
-    ...T.font.labelSm,
-    fontWeight: '600',
-  },
-  tagStatusTextOpen: { color: T.colors.onTertiary },
-  tagStatusTextClosed: { color: T.colors.onSecondaryContainer },
+    cardList: {
+      gap: T.spacing.gutter,
+      paddingBottom: 8,
+    },
 
-  emptyText: {
-    textAlign: 'center',
-    color: T.colors.onSurfaceVariant,
-    marginTop: 24,
-    ...T.font.bodyMd,
-  },
+    /* Vendor Card */
+    vendorCard: {
+      backgroundColor: T.colors.surfaceContainerLowest,
+      borderRadius: T.radius.lg,
+      padding: T.spacing.insetCard,
+      ...T.shadow.card,
+    },
+    cardBody: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    cardInfo: { flex: 1 },
+    cardImage: {
+      width: 64,
+      height: 64,
+      borderRadius: T.radius.md,
+    },
+    cardImagePlaceholder: {
+      width: 64,
+      height: 64,
+      borderRadius: T.radius.md,
+      backgroundColor: T.colors.surfaceContainerHigh,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cardImageEmoji: { fontSize: 28 },
+    cardName: {
+      ...T.font.headlineSm,
+      color: T.colors.onSurface,
+      marginBottom: 2,
+    },
+    cardDesc: {
+      ...T.font.bodyMd,
+      color: T.colors.onSurfaceVariant,
+      marginBottom: 8,
+    },
+    cardTags: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    tagDistance: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      backgroundColor: T.colors.surfaceVariant,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: T.radius.full,
+    },
+    tagDistanceIcon: { fontSize: 10 },
+    tagDistanceText: {
+      ...T.font.labelSm,
+      color: T.colors.onSurfaceVariant,
+    },
+    tagStatus: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: T.radius.full,
+    },
+    tagOpen: { backgroundColor: T.colors.tertiary },
+    tagClosed: { backgroundColor: T.colors.secondaryContainer },
+    tagStatusText: {
+      ...T.font.labelSm,
+      fontWeight: '600',
+    },
+    tagStatusTextOpen: { color: T.colors.onTertiary },
+    tagStatusTextClosed: { color: T.colors.onSecondaryContainer },
 
-  /* Owner Modal */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  modalContent: {
-    backgroundColor: T.colors.surfaceContainerLowest,
-    borderRadius: T.radius.xl,
-    padding: 28,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 340,
-  },
-  modalTitle: {
-    ...T.font.headlineMd,
-    color: T.colors.onSurface,
-    marginBottom: 8,
-  },
-  modalDesc: {
-    ...T.font.bodyMd,
-    color: T.colors.onSurfaceVariant,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  modalButton: {
-    backgroundColor: T.colors.primaryContainer,
-    borderRadius: T.radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalButtonText: {
-    ...T.font.headlineSm,
-    color: T.colors.onPrimaryContainer,
-  },
-  modalClose: {
-    paddingVertical: 8,
-  },
-  modalCloseText: {
-    ...T.font.bodyMd,
-    color: T.colors.onSurfaceVariant,
-  },
+    emptyText: {
+      textAlign: 'center',
+      color: T.colors.onSurfaceVariant,
+      marginTop: 24,
+      ...T.font.bodyMd,
+    },
 
-  /* Markers */
-  markerContainer: { alignItems: 'center' },
-  marker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...T.shadow.card,
-  },
-  markerOpen: { backgroundColor: T.colors.tertiary },
-  markerClosed: { backgroundColor: T.colors.secondary },
-  markerIcon: { fontSize: 18 },
-  markerPointer: {
-    width: 10,
-    height: 10,
-    transform: [{ rotate: '45deg' }],
-    marginTop: -5,
-  },
-  userMarkerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: T.colors.primaryContainer,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: T.colors.onPrimary,
-    ...T.shadow.card,
-  },
-  userMarkerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: T.colors.primary,
-  },
-  markerLabelContainer: {
-    backgroundColor: T.colors.surfaceContainerLowest,
-    borderRadius: T.radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    marginTop: 4,
-    maxWidth: 100,
-    alignItems: 'center',
-    ...T.shadow.card,
-  },
-  markerLabelText: {
-    ...T.font.labelSm,
-    fontWeight: '700',
-    color: T.colors.onSurface,
-    textAlign: 'center',
-  },
-})
+    /* Owner Modal */
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 32,
+    },
+    modalContent: {
+      backgroundColor: T.colors.surfaceContainerLowest,
+      borderRadius: T.radius.xl,
+      padding: 28,
+      alignItems: 'center',
+      width: '100%',
+      maxWidth: 340,
+    },
+    modalTitle: {
+      ...T.font.headlineMd,
+      color: T.colors.onSurface,
+      marginBottom: 8,
+    },
+    modalDesc: {
+      ...T.font.bodyMd,
+      color: T.colors.onSurfaceVariant,
+      textAlign: 'center',
+      marginBottom: 24,
+    },
+    modalButton: {
+      backgroundColor: T.colors.primaryContainer,
+      borderRadius: T.radius.lg,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      width: '100%',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    modalButtonText: {
+      ...T.font.headlineSm,
+      color: T.colors.onPrimaryContainer,
+    },
+    modalClose: {
+      paddingVertical: 8,
+    },
+    modalCloseText: {
+      ...T.font.bodyMd,
+      color: T.colors.onSurfaceVariant,
+    },
+
+    /* Markers */
+    markerContainer: { alignItems: 'center' },
+    marker: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...T.shadow.card,
+    },
+    markerOpen: { backgroundColor: T.colors.tertiary },
+    markerClosed: { backgroundColor: T.colors.secondary },
+    markerIcon: { fontSize: 18 },
+    markerPointer: {
+      width: 10,
+      height: 10,
+      transform: [{ rotate: '45deg' }],
+      marginTop: -5,
+    },
+    userMarkerContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    userMarker: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: T.colors.primaryContainer,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 3,
+      borderColor: T.colors.onPrimary,
+      ...T.shadow.card,
+    },
+    userMarkerDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: T.colors.primary,
+    },
+    markerLabelContainer: {
+      backgroundColor: T.colors.surfaceContainerLowest,
+      borderRadius: T.radius.sm,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      marginTop: 4,
+      maxWidth: 100,
+      alignItems: 'center',
+      ...T.shadow.card,
+    },
+    markerLabelText: {
+      ...T.font.labelSm,
+      fontWeight: '700',
+      color: T.colors.onSurface,
+      textAlign: 'center',
+    },
+  })
+}
