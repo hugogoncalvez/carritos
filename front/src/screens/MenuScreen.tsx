@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -14,6 +14,7 @@ import { useRoute, useNavigation } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
 import { supabase, fetchMenus, fetchRatingAvg, submitReview } from '../supabaseClient'
 import type { Menu, RootStackParamList } from '../types'
+import { CATEGORIAS } from '../types'
 import { useCart } from '../context/CartContext'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
@@ -107,6 +108,20 @@ export default function MenuScreen() {
     fetchCarritoInfo()
   }, [carritoId])
 
+  const sections = useMemo(() => {
+    const grouped: Record<string, Menu[]> = {}
+    for (const cat of CATEGORIAS) {
+      grouped[cat] = []
+    }
+    for (const menu of menus) {
+      const cat = CATEGORIAS.includes(menu.categoria as any) ? menu.categoria : 'Comidas'
+      grouped[cat].push(menu)
+    }
+    return CATEGORIAS
+      .filter((cat) => grouped[cat].length > 0)
+      .map((cat) => ({ title: cat, data: grouped[cat] }))
+  }, [menus])
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -129,8 +144,8 @@ export default function MenuScreen() {
         <View style={styles.topBarBtn} />
       </View>
 
-      <FlatList
-        data={menus}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
@@ -206,11 +221,11 @@ export default function MenuScreen() {
                 </View>
               </View>
             </View>
-
-            {/* SECTION TITLE */}
-            <Text style={styles.sectionTitle}>Menú Principal</Text>
           </>
         }
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        )}
         renderItem={({ item }) => {
           const cartItem = items.find(
             (i) => i.menuId === item.id && i.carritoId === carritoId,
@@ -426,6 +441,7 @@ function getStyles(T: any) { return StyleSheet.create({
   sectionTitle: {
     ...T.font.headlineSm,
     color: T.colors.onSurface,
+    marginTop: T.spacing.stackLg,
     marginBottom: T.spacing.gutter,
   },
 

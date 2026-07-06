@@ -20,9 +20,13 @@ export type Menu = {
   descripcion: string | null
   precio: number
   disponible: boolean
+  categoria: string
   imagen_url: string | null
   created_at: string
 }
+
+export const CATEGORIAS = ['Comidas', 'Bebidas', 'Acompañamiento', 'Promociones'] as const
+export type Categoria = typeof CATEGORIAS[number]
 
 export type CarritoConDistancia = Carrito & { distancia_km: number }
 

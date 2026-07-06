@@ -21,6 +21,7 @@ export async function fetchMenus(carritoId: string) {
     .select('*')
     .eq('carrito_id', carritoId)
     .eq('disponible', true)
+    .order('categoria', { ascending: true })
     .order('nombre_producto', { ascending: true })
   if (error) throw error
   return data as Menu[]
@@ -97,6 +98,7 @@ export async function fetchMenusAdmin(carritoId: string) {
     .from('menus')
     .select('*')
     .eq('carrito_id', carritoId)
+    .order('categoria', { ascending: true })
     .order('nombre_producto', { ascending: true })
   if (error) throw error
   return data as Menu[]
@@ -190,6 +192,7 @@ export async function upsertMenu(menu: {
   descripcion: string | null
   precio: number
   disponible: boolean
+  categoria?: string
 }) {
   const { data, error } = await supabase
     .from('menus')

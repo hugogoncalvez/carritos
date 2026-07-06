@@ -36,6 +36,7 @@ import {
   updatePedidoItems,
 } from '../supabaseClient'
 import type { Carrito, Menu, CarritoTag, Pedido } from '../types'
+import { CATEGORIAS } from '../types'
 import { useTheme } from '../theme'
 
 export default function AdminScreen() {
@@ -71,6 +72,7 @@ export default function AdminScreen() {
   const [menuNombre, setMenuNombre] = useState('')
   const [menuDesc, setMenuDesc] = useState('')
   const [menuPrecio, setMenuPrecio] = useState('')
+  const [menuCategoria, setMenuCategoria] = useState<string>('Comidas')
   const [newMenuImageUri, setNewMenuImageUri] = useState<string | null>(null)
   const [imgRefresh, setImgRefresh] = useState(0)
 
@@ -79,6 +81,7 @@ export default function AdminScreen() {
     setMenuNombre('')
     setMenuDesc('')
     setMenuPrecio('')
+    setMenuCategoria('Comidas')
     setNewMenuImageUri(null)
     setShowMenuModal(true)
   }
@@ -88,6 +91,7 @@ export default function AdminScreen() {
     setMenuNombre(menu.nombre_producto)
     setMenuDesc(menu.descripcion ?? '')
     setMenuPrecio(menu.precio.toString())
+    setMenuCategoria(menu.categoria)
     setNewMenuImageUri(null)
     setShowMenuModal(true)
   }
@@ -138,6 +142,7 @@ export default function AdminScreen() {
         nombre_producto: menuNombre.trim(),
         descripcion: menuDesc.trim() || null,
         precio,
+        categoria: menuCategoria,
         disponible: editingMenu ? editingMenu.disponible : true,
       }
       if (editingMenu?.id) {
@@ -167,6 +172,7 @@ export default function AdminScreen() {
         nombre_producto: menu.nombre_producto,
         descripcion: menu.descripcion,
         precio: menu.precio,
+        categoria: menu.categoria,
         disponible: !menu.disponible,
       } as any)
       const updated = await fetchMenusAdmin(menu.carrito_id)
@@ -760,6 +766,7 @@ export default function AdminScreen() {
                         {menu.nombre_producto}
                       </Text>
                       <Text style={styles.productPrice}>${menu.precio.toFixed(2)}</Text>
+                      <Text style={styles.productCategoria}>{menu.categoria}</Text>
                     </View>
                     <View style={styles.productActions}>
                       <TouchableOpacity
@@ -834,6 +841,30 @@ export default function AdminScreen() {
                     onChangeText={setMenuPrecio}
                     keyboardType="decimal-pad"
                   />
+
+                  <Text style={styles.fieldLabel}>Categoría</Text>
+                  <View style={styles.categoriaRow}>
+                    {CATEGORIAS.map((cat) => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[
+                          styles.categoriaChip,
+                          menuCategoria === cat && styles.categoriaChipActive,
+                        ]}
+                        onPress={() => setMenuCategoria(cat)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.categoriaChipText,
+                            menuCategoria === cat && styles.categoriaChipTextActive,
+                          ]}
+                        >
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
                   <>
                     {newMenuImageUri ? (
@@ -1535,6 +1566,11 @@ function getStyles(T: any) {
       marginTop: 2,
       fontWeight: '600',
     },
+    productCategoria: {
+      ...T.font.labelSm,
+      color: T.colors.onSurfaceVariant,
+      marginTop: 2,
+    },
     productActions: { alignItems: 'flex-end', gap: 4 },
     photoBtn: {
       backgroundColor: T.colors.primary,
@@ -1916,6 +1952,31 @@ function getStyles(T: any) {
     backBtnText: {
       ...T.font.bodyMd,
       color: T.colors.primary,
+    },
+
+    /* Categoría selector */
+    categoriaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
+    },
+    categoriaChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: T.radius.full,
+      backgroundColor: T.colors.surfaceContainerHigh,
+    },
+    categoriaChipActive: {
+      backgroundColor: T.colors.primary,
+    },
+    categoriaChipText: {
+      ...T.font.labelSm,
+      color: T.colors.onSurfaceVariant,
+      fontWeight: '600',
+    },
+    categoriaChipTextActive: {
+      color: T.colors.onPrimary,
     },
   })
 }

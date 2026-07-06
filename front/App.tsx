@@ -1,6 +1,5 @@
-import { useCallback } from 'react'
+import { useState } from 'react'
 import { useFonts } from 'expo-font'
-import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { View, ActivityIndicator } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -16,10 +15,9 @@ import MenuScreen from './src/screens/MenuScreen'
 import LoginScreen from './src/screens/LoginScreen'
 import AdminScreen from './src/screens/AdminScreen'
 import ClientTabBar from './src/components/ClientTabBar'
+import AnimatedSplash from './src/components/AnimatedSplash'
 import type { RootStackParamList, ClientTabParamList, AdminTabParamList } from './src/types'
 import { CUSTOM_FONTS } from './src/theme'
-
-SplashScreen.preventAutoHideAsync()
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const ClientTab = createBottomTabNavigator<ClientTabParamList>()
@@ -86,19 +84,19 @@ function RootNavigator() {
 
 export default function App() {
   const [fontsLoaded] = useFonts(CUSTOM_FONTS)
-  const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
-      await SplashScreen.hideAsync()
-    }
-  }, [fontsLoaded])
+  const [splashDone, setSplashDone] = useState(false)
 
-  if (!fontsLoaded) {
-    return null
+  if (!splashDone) {
+    return (
+      <ThemeProvider>
+        <AnimatedSplash onAnimationEnd={() => setSplashDone(true)} />
+      </ThemeProvider>
+    )
   }
 
   return (
     <ThemeProvider>
-      <SafeAreaProvider onLayout={onLayoutRootView}>
+      <SafeAreaProvider>
         <AuthProvider>
           <CartProvider>
             <RootNavigator />
