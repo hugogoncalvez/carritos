@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useFonts } from 'expo-font'
+import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { View, ActivityIndicator } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -18,6 +19,8 @@ import ClientTabBar from './src/components/ClientTabBar'
 import AnimatedSplash from './src/components/AnimatedSplash'
 import type { RootStackParamList, ClientTabParamList, AdminTabParamList } from './src/types'
 import { CUSTOM_FONTS } from './src/theme'
+
+SplashScreen.preventAutoHideAsync()
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const ClientTab = createBottomTabNavigator<ClientTabParamList>()

@@ -1,70 +1,88 @@
 import { useEffect, useRef } from 'react'
-import { View, StyleSheet, Animated, Image } from 'react-native'
+import { View, StyleSheet, Animated, Image, Easing } from 'react-native'
 import * as SplashScreen from 'expo-splash-screen'
-import { useTheme } from '../theme'
 
 interface Props {
   onAnimationEnd: () => void
 }
 
 export default function AnimatedSplash({ onAnimationEnd }: Props) {
-  const { T } = useTheme()
-  const scale = useRef(new Animated.Value(0.5)).current
-  const opacity = useRef(new Animated.Value(0)).current
+  const scale = useRef(new Animated.Value(1)).current
+  const glowOpacity = useRef(new Animated.Value(0.4)).current
 
   useEffect(() => {
     SplashScreen.hideAsync()
-    Animated.sequence([
-      // Fase 1: Aparece y crece un poco
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scale, {
-          toValue: 1.1,
-          tension: 20,
-          friction: 5,
-          useNativeDriver: true,
-        }),
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1.06,
+            duration: 800,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowOpacity, {
+            toValue: 0.7,
+            duration: 800,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 800,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowOpacity, {
+            toValue: 0.4,
+            duration: 800,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
       ]),
-      // Fase 2: Vuelve a su tamaño normal suavemente
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      // Fase 3: Pausa para que se vea bien el logo
-      Animated.delay(700),
-      // Fase 4: Hace zoom gigante y desaparece para revelar la app
+    )
+
+    pulse.start()
+
+    const timer = setTimeout(() => {
+      pulse.stop()
       Animated.parallel([
         Animated.timing(scale, {
-          toValue: 20,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
+          toValue: 0.3,
           duration: 400,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ]),
-    ]).start()
+        Animated.timing(glowOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(onAnimationEnd)
+    }, 2500)
 
-    const timer = setTimeout(onAnimationEnd, 2500)
-    return () => clearTimeout(timer)
+    return () => {
+      pulse.stop()
+      clearTimeout(timer)
+    }
   }, [])
 
   return (
     <View style={styles.container}>
       <Animated.View
         style={[
+          styles.glow,
+          { opacity: glowOpacity },
+        ]}
+      />
+      <Animated.View
+        style={[
           styles.iconWrapper,
-          {
-            opacity,
-            transform: [{ scale }],
-          },
+          { transform: [{ scale }] },
         ]}
       >
         <Image source={require('../../assets/icon.png')} style={styles.icon} resizeMode="contain" />
@@ -80,9 +98,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  glow: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: '#4a9eff',
+  },
   iconWrapper: {
-    width: 220,
-    height: 220,
+    width: 120,
+    height: 120,
   },
   icon: {
     width: '100%',
