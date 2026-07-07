@@ -48,7 +48,11 @@
       ],
       "@maplibre/maplibre-react-native",
       "expo-font",
-      "expo-splash-screen"
+      ["expo-splash-screen", {
+        "backgroundColor": "#2e3132",
+        "image": "./assets/splash-icon.png",
+        "imageWidth": 300
+      }]
     ],
     "extra": {
       "eas": {
