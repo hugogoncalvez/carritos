@@ -957,7 +957,7 @@ export default function AdminScreen() {
 
                   <View style={styles.pedidosWarning}>
                     <Text style={styles.pedidosWarningText}>
-                      Tocá el estado para cambiarlo y los ítems para tildarlos.
+                      Tocá el estado para elegir pendiente, completado o cancelado. Tildá los ítems a medida que los preparás (no cambia el estado solo).
                     </Text>
                   </View>
 
@@ -984,30 +984,26 @@ export default function AdminScreen() {
                                 pedido.estado === 'cancelado' && styles.pedidoEstadoCancelado,
                               ]}
                               onPress={() => {
-                                const next: Pedido['estado'] =
-                                  pedido.estado === 'pendiente' ? 'completado'
-                                    : pedido.estado === 'completado' ? 'cancelado'
-                                      : 'pendiente'
+                                const setEstado = async (next: Pedido['estado']) => {
+                                  try {
+                                    await updatePedidoEstado(pedido.id, next)
+                                    setPedidos((prev) =>
+                                      prev.map((p) =>
+                                        p.id === pedido.id ? { ...p, estado: next } : p,
+                                      ),
+                                    )
+                                  } catch {
+                                    Alert.alert('Error', 'No se pudo cambiar el estado')
+                                  }
+                                }
                                 Alert.alert(
                                   'Cambiar estado',
-                                  `¿Marcar como "${next === 'pendiente' ? 'Pendiente' : next === 'completado' ? 'Completado' : 'Cancelado'}"?`,
+                                  `Pedido actual: "${pedido.estado}". Elegí el nuevo estado:`,
                                   [
-                                    { text: 'No', style: 'cancel' },
-                                    {
-                                      text: 'Sí',
-                                      onPress: async () => {
-                                        try {
-                                          await updatePedidoEstado(pedido.id, next)
-                                          setPedidos((prev) =>
-                                            prev.map((p) =>
-                                              p.id === pedido.id ? { ...p, estado: next } : p,
-                                            ),
-                                          )
-                                        } catch {
-                                          Alert.alert('Error', 'No se pudo cambiar el estado')
-                                        }
-                                      },
-                                    },
+                                    { text: 'Cancelar', style: 'cancel' },
+                                    { text: 'Pendiente', onPress: () => setEstado('pendiente') },
+                                    { text: 'Completado', onPress: () => setEstado('completado') },
+                                    { text: 'Cancelado', style: 'destructive', onPress: () => setEstado('cancelado') },
                                   ],
                                 )
                               }}
@@ -1050,7 +1046,7 @@ export default function AdminScreen() {
                                 size={20}
                                 color={item.cumplido ? T.colors.primary : T.colors.onSurfaceVariant}
                               />
-                              <Text style={[styles.pedidoItemName, !item.cumplido && styles.pedidoItemTachado]}>
+                              <Text style={[styles.pedidoItemName, item.cumplido && styles.pedidoItemTachado]}>
                                 {item.cantidad}x {item.nombre}
                               </Text>
                             </TouchableOpacity>
