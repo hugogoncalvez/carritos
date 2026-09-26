@@ -415,10 +415,18 @@ export default function AdminScreen() {
     <View style={styles.container}>
       {/* FLOATING TOP BAR */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.topBarBtn} onPress={signOut}>
-          <MaterialIcons name="arrow-back" size={22} color={T.colors.onSurfaceVariant} />
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Carritos Al Toque</Text>
+        {selectedCarrito && carritos.length > 1 ? (
+          <TouchableOpacity style={styles.topBarBtn} onPress={() => setSelectedCarrito(null)}>
+            <MaterialIcons name="arrow-back" size={22} color={T.colors.onSurfaceVariant} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.topBarBtn} onPress={signOut}>
+            <MaterialIcons name="logout" size={22} color={T.colors.onSurfaceVariant} />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.topBarTitle} numberOfLines={1}>
+          {selectedCarrito ? selectedCarrito.nombre : 'Carritos Al Toque'}
+        </Text>
         <TouchableOpacity style={styles.topBarBtn} onPress={toggleTheme}>
           <Text style={styles.topBarBtnIcon}>{isDark ? '☀️' : '🌙'}</Text>
         </TouchableOpacity>
@@ -483,18 +491,6 @@ export default function AdminScreen() {
           </>
         ) : (
           <>
-            {/* BACK BUTTON */}
-            {carritos.length > 1 && (
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={() => setSelectedCarrito(null)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="arrow-back" size={18} color={T.colors.primary} />
-                <Text style={styles.backBtnText}> Volver a mis carritos</Text>
-              </TouchableOpacity>
-            )}
-
             {/* PROFILE CARD */}
             <View style={styles.profileCard}>
               <View style={styles.profileBanner}>
