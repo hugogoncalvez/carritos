@@ -70,7 +70,7 @@ export type Pedido = {
   carrito_id: string
   items: PedidoItem[]
   total: number
-  estado: 'pendiente' | 'completado' | 'cancelado'
+  estado: 'pendiente' | 'completado' | 'entregado' | 'cancelado'
   created_at: string
 }
 

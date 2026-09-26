@@ -648,8 +648,8 @@ export default function AdminScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionLabelWide}>Estadísticas del Día</Text>
                   <Text style={styles.actionSublabel}>
-                    {pedidos.filter((p) => p.estado === 'completado').length + pedidos.filter((p) => p.estado === 'pendiente').length} Pedidos •
-                    ${pedidos.filter((p) => p.estado === 'completado').reduce((s, p) => s + p.total, 0).toFixed(2)}
+                    {pedidos.filter((p) => p.estado !== 'cancelado').length} Pedidos •
+                    ${pedidos.filter((p) => p.estado === 'completado' || p.estado === 'entregado').reduce((s, p) => s + p.total, 0).toFixed(2)}
                   </Text>
                 </View>
                 <Text style={styles.actionChevron}>›</Text>
@@ -957,7 +957,7 @@ export default function AdminScreen() {
 
                   <View style={styles.pedidosWarning}>
                     <Text style={styles.pedidosWarningText}>
-                      Tocá el estado para elegir pendiente, completado o cancelado. Tildá los ítems a medida que los preparás (no cambia el estado solo).
+                      Tocá el estado para elegir pendiente, completado, entregado o cancelado. Tildá los ítems a medida que los preparás (no cambia el estado solo).
                     </Text>
                   </View>
 
@@ -981,6 +981,7 @@ export default function AdminScreen() {
                                 styles.pedidoEstadoBadge,
                                 pedido.estado === 'pendiente' && styles.pedidoEstadoPendiente,
                                 pedido.estado === 'completado' && styles.pedidoEstadoCompletado,
+                                pedido.estado === 'entregado' && styles.pedidoEstadoEntregado,
                                 pedido.estado === 'cancelado' && styles.pedidoEstadoCancelado,
                               ]}
                               onPress={() => {
@@ -1003,6 +1004,7 @@ export default function AdminScreen() {
                                     { text: 'Cancelar', style: 'cancel' },
                                     { text: 'Pendiente', onPress: () => setEstado('pendiente') },
                                     { text: 'Completado', onPress: () => setEstado('completado') },
+                                    { text: 'Entregado', onPress: () => setEstado('entregado') },
                                     { text: 'Cancelado', style: 'destructive', onPress: () => setEstado('cancelado') },
                                   ],
                                 )
@@ -1011,11 +1013,13 @@ export default function AdminScreen() {
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                 {pedido.estado === 'pendiente' && <MaterialIcons name="hourglass-empty" size={14} color="#E65100" />}
                                 {pedido.estado === 'completado' && <MaterialIcons name="check-circle" size={14} color="#2E7D32" />}
+                                {pedido.estado === 'entregado' && <MaterialIcons name="delivery-dining" size={14} color="#1565C0" />}
                                 {pedido.estado === 'cancelado' && <MaterialIcons name="cancel" size={14} color="#C62828" />}
                                 <Text style={styles.pedidoEstadoText}>
                                   {pedido.estado === 'pendiente' ? 'Pendiente'
                                     : pedido.estado === 'completado' ? 'Completado'
-                                      : 'Cancelado'}
+                                      : pedido.estado === 'entregado' ? 'Entregado'
+                                        : 'Cancelado'}
                                 </Text>
                               </View>
                             </TouchableOpacity>
@@ -1078,7 +1082,7 @@ export default function AdminScreen() {
                   </View>
 
                   <Text style={styles.pedidosWarningText}>
-                    Solo lectura. Se calculan sobre pedidos marcados como completados.
+                    Solo lectura. Se calculan sobre pedidos completados y entregados.
                   </Text>
 
                   {/* STATS SUMMARY */}
@@ -1100,6 +1104,12 @@ export default function AdminScreen() {
                       <Text style={styles.pedidosStatLabel}>Completados</Text>
                     </View>
                     <View style={styles.pedidosStatBox}>
+                      <Text style={[styles.pedidosStatValue, { color: '#1565C0' }]}>
+                        {pedidos.filter((p) => p.estado === 'entregado').length}
+                      </Text>
+                      <Text style={styles.pedidosStatLabel}>Entregados</Text>
+                    </View>
+                    <View style={styles.pedidosStatBox}>
                       <Text style={[styles.pedidosStatValue, { color: '#E53935' }]}>
                         {pedidos.filter((p) => p.estado === 'cancelado').length}
                       </Text>
@@ -1108,13 +1118,13 @@ export default function AdminScreen() {
                   </View>
 
                   <Text style={styles.pedidosGanancia}>
-                    Ganancia estimada: ${pedidos.filter((p) => p.estado === 'completado').reduce((s, p) => s + p.total, 0).toFixed(2)}
+                    Ganancia estimada: ${pedidos.filter((p) => p.estado === 'completado' || p.estado === 'entregado').reduce((s, p) => s + p.total, 0).toFixed(2)}
                   </Text>
 
                   {/* PRODUCTOS MAS VENDIDOS */}
                   {(() => {
                     const ventas: Record<string, { nombre: string; cantidad: number }> = {}
-                    for (const p of pedidos.filter((p) => p.estado === 'completado')) {
+                    for (const p of pedidos.filter((p) => p.estado === 'completado' || p.estado === 'entregado')) {
                       for (const item of p.items) {
                         if (!ventas[item.menuId]) {
                           ventas[item.menuId] = { nombre: item.nombre, cantidad: 0 }
@@ -1859,6 +1869,9 @@ function getStyles(T: any) {
     },
     pedidoEstadoCompletado: {
       backgroundColor: '#E8F5E9',
+    },
+    pedidoEstadoEntregado: {
+      backgroundColor: '#E3F2FD',
     },
     pedidoEstadoCancelado: {
       backgroundColor: '#FFEBEE',
