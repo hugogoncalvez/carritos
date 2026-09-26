@@ -63,6 +63,7 @@ export default function AdminScreen() {
   const [ratingCount, setRatingCount] = useState(0)
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [showPedidosModal, setShowPedidosModal] = useState(false)
+  const [showStatsModal, setShowStatsModal] = useState(false)
 
   const FOOD_EMOJIS = ['🍔', '🌮', '🌯', '🌭', '🥪', '🍕', '🍝', '🥘', '🍛', '🍣', '🥟', '🍦', '🍩', '🧁', '🥧', '🍰', '🍪', '🥗', '🥙', '🧆', '🍜', '🍲', '🥫', '🥤', '🧃', '🍺', '🍷', '🥂', '☕', '🧉']
 
@@ -629,6 +630,19 @@ export default function AdminScreen() {
 
               <TouchableOpacity style={styles.actionCardWide} onPress={() => setShowPedidosModal(true)} activeOpacity={0.8}>
                 <View style={styles.actionIconCircleSecondary}>
+                  <MaterialIcons name="receipt-long" size={20} color={T.colors.onSurface} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.actionLabelWide}>Pedidos</Text>
+                  <Text style={styles.actionSublabel}>
+                    {pedidos.filter((p) => p.estado === 'pendiente').length} pendientes
+                  </Text>
+                </View>
+                <Text style={styles.actionChevron}>›</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionCardWide} onPress={() => setShowStatsModal(true)} activeOpacity={0.8}>
+                <View style={styles.actionIconCircleSecondary}>
                   <MaterialIcons name="bar-chart" size={20} color={T.colors.onSurface} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -943,64 +957,9 @@ export default function AdminScreen() {
 
                   <View style={styles.pedidosWarning}>
                     <Text style={styles.pedidosWarningText}>
-                      ⚠️ Los pedidos se registran al tocar "Enviar por WhatsApp". Las estadísticas solo reflejan pedidos marcados como completados.
+                      Tocá el estado para cambiarlo y los ítems para tildarlos.
                     </Text>
                   </View>
-
-                  {/* STATS SUMMARY */}
-                  <View style={styles.pedidosStats}>
-                    <View style={styles.pedidosStatBox}>
-                      <Text style={styles.pedidosStatValue}>{pedidos.length}</Text>
-                      <Text style={styles.pedidosStatLabel}>Total</Text>
-                    </View>
-                    <View style={styles.pedidosStatBox}>
-                      <Text style={[styles.pedidosStatValue, { color: T.colors.tertiary }]}>
-                        {pedidos.filter((p) => p.estado === 'pendiente').length}
-                      </Text>
-                      <Text style={styles.pedidosStatLabel}>Pendientes</Text>
-                    </View>
-                    <View style={styles.pedidosStatBox}>
-                      <Text style={[styles.pedidosStatValue, { color: T.colors.primary }]}>
-                        {pedidos.filter((p) => p.estado === 'completado').length}
-                      </Text>
-                      <Text style={styles.pedidosStatLabel}>Completados</Text>
-                    </View>
-                    <View style={styles.pedidosStatBox}>
-                      <Text style={[styles.pedidosStatValue, { color: '#E53935' }]}>
-                        {pedidos.filter((p) => p.estado === 'cancelado').length}
-                      </Text>
-                      <Text style={styles.pedidosStatLabel}>Cancelados</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.pedidosGanancia}>
-                    Ganancia estimada: ${pedidos.filter((p) => p.estado === 'completado').reduce((s, p) => s + p.total, 0).toFixed(2)}
-                  </Text>
-
-                  {/* PRODUCTOS MAS VENDIDOS */}
-                  {(() => {
-                    const ventas: Record<string, { nombre: string; cantidad: number }> = {}
-                    for (const p of pedidos.filter((p) => p.estado === 'completado')) {
-                      for (const item of p.items) {
-                        if (!ventas[item.menuId]) {
-                          ventas[item.menuId] = { nombre: item.nombre, cantidad: 0 }
-                        }
-                        ventas[item.menuId].cantidad += item.cantidad
-                      }
-                    }
-                    const top = Object.values(ventas).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5)
-                    return top.length > 0 ? (
-                      <>
-                        <Text style={styles.pedidosTopTitle}>Productos más vendidos</Text>
-                        {top.map((v, i) => (
-                          <View key={i} style={styles.pedidosTopRow}>
-                            <Text style={styles.pedidosTopName}>{i + 1}. {v.nombre}</Text>
-                            <Text style={styles.pedidosTopCount}>x{v.cantidad}</Text>
-                          </View>
-                        ))}
-                      </>
-                    ) : null
-                  })()}
 
                   <ScrollView style={styles.pedidosList} showsVerticalScrollIndicator={false}>
                     {pedidos.length === 0 ? (
@@ -1100,6 +1059,88 @@ export default function AdminScreen() {
                       ))
                     )}
                   </ScrollView>
+                </View>
+              </View>
+            </Modal>
+
+            {/* ESTADISTICAS MODAL - solo lectura */}
+            <Modal
+              visible={showStatsModal}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowStatsModal(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.pedidosModal}>
+                  <View style={styles.pedidosModalHeader}>
+                    <Text style={styles.pedidosModalTitle}>
+                      Estadísticas del Día
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowStatsModal(false)}>
+                      <MaterialIcons name="close" size={22} color={T.colors.onSurfaceVariant} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.pedidosWarningText}>
+                    Solo lectura. Se calculan sobre pedidos marcados como completados.
+                  </Text>
+
+                  {/* STATS SUMMARY */}
+                  <View style={styles.pedidosStats}>
+                    <View style={styles.pedidosStatBox}>
+                      <Text style={styles.pedidosStatValue}>{pedidos.length}</Text>
+                      <Text style={styles.pedidosStatLabel}>Total</Text>
+                    </View>
+                    <View style={styles.pedidosStatBox}>
+                      <Text style={[styles.pedidosStatValue, { color: T.colors.tertiary }]}>
+                        {pedidos.filter((p) => p.estado === 'pendiente').length}
+                      </Text>
+                      <Text style={styles.pedidosStatLabel}>Pendientes</Text>
+                    </View>
+                    <View style={styles.pedidosStatBox}>
+                      <Text style={[styles.pedidosStatValue, { color: T.colors.primary }]}>
+                        {pedidos.filter((p) => p.estado === 'completado').length}
+                      </Text>
+                      <Text style={styles.pedidosStatLabel}>Completados</Text>
+                    </View>
+                    <View style={styles.pedidosStatBox}>
+                      <Text style={[styles.pedidosStatValue, { color: '#E53935' }]}>
+                        {pedidos.filter((p) => p.estado === 'cancelado').length}
+                      </Text>
+                      <Text style={styles.pedidosStatLabel}>Cancelados</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.pedidosGanancia}>
+                    Ganancia estimada: ${pedidos.filter((p) => p.estado === 'completado').reduce((s, p) => s + p.total, 0).toFixed(2)}
+                  </Text>
+
+                  {/* PRODUCTOS MAS VENDIDOS */}
+                  {(() => {
+                    const ventas: Record<string, { nombre: string; cantidad: number }> = {}
+                    for (const p of pedidos.filter((p) => p.estado === 'completado')) {
+                      for (const item of p.items) {
+                        if (!ventas[item.menuId]) {
+                          ventas[item.menuId] = { nombre: item.nombre, cantidad: 0 }
+                        }
+                        ventas[item.menuId].cantidad += item.cantidad
+                      }
+                    }
+                    const top = Object.values(ventas).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5)
+                    return top.length > 0 ? (
+                      <>
+                        <Text style={styles.pedidosTopTitle}>Productos más vendidos</Text>
+                        {top.map((v, i) => (
+                          <View key={i} style={styles.pedidosTopRow}>
+                            <Text style={styles.pedidosTopName}>{i + 1}. {v.nombre}</Text>
+                            <Text style={styles.pedidosTopCount}>x{v.cantidad}</Text>
+                          </View>
+                        ))}
+                      </>
+                    ) : (
+                      <Text style={styles.pedidosEmpty}>Sin ventas completadas aún.</Text>
+                    )
+                  })()}
                 </View>
               </View>
             </Modal>
